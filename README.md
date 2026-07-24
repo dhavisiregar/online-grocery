@@ -112,6 +112,26 @@ to the main store.
   and 7-day auto-confirm window are enforced when an order is _read_
   (`OrderService.applyLazyTransitions`), not by a background scheduler.
   Good enough for local dev; swap in a real job runner before production.
+- **Payment gateway (Midtrans Snap)**: `payment_method: "midtrans"` gets a
+  Snap checkout token from `POST /api/orders/:id/midtrans-token`
+  (`internal/service/midtrans_service.go`), opened client-side via Snap.js.
+  Confirmed payment (`settlement`/`capture`+`accept`) skips
+  `waiting_confirmation` and goes straight to `processing` — per spec,
+  gateway payments don't need manual admin review the way a manual-transfer
+  proof upload does. `deny`/`cancel`/`expire` cancel the order and restore
+  stock the same way a customer cancellation does. Two paths feed this: the
+  public webhook (`POST /api/payments/midtrans/notification`) for
+  production, and `GET /api/orders/:id/payment-status` for local dev, where
+  Midtrans's server-to-server webhook can't reach `localhost` — the
+  frontend calls it right after the Snap popup reports success/pending.
+  Both verify `SHA512(order_id+status_code+gross_amount+server_key)`
+  against Midtrans's `signature_key` before trusting anything in the
+  payload, and both funnel through the same idempotent transition logic
+  (`OrderService.transitionFromMidtransStatus`) — verified against the live
+  sandbox API: real Snap token issuance, a forged signature rejected, a
+  correctly-signed `settlement` notification processed and safely
+  re-delivered without double-applying, and a `deny` notification
+  cancelling the order with stock restored via journal.
 
 ## Feature status
 
@@ -151,7 +171,8 @@ message instead of failing silently.
 | -------------------------------------------------------------------- | ------------------- |
 | Cart (add/update/remove, stock + verified-user checks, navbar badge) | ✅ Built end-to-end |
 | Checkout (address selection, shipping estimate, order creation)      | ✅ Built end-to-end |
-| Payment proof upload (validated client + server, static-served)      | ✅ Built end-to-end |
+| Manual transfer: payment proof upload (validated, static-served)     | ✅ Built end-to-end |
+| Payment gateway: Midtrans Snap (card/VA/e-wallet/QRIS)                | ✅ Built end-to-end |
 | Order list/detail, cancel, confirm receipt                           | ✅ Built end-to-end |
 | Admin order management (confirm payment, ship, cancel), store-scoped | ✅ Built end-to-end |
 
@@ -180,3 +201,9 @@ See `backend/.env.example` and `frontend/.env.local.example`. Notably:
   shipping cost + address geolocation lookups.
 - `SMTP_*` — optional; without them, verification/reset emails are logged
   to the backend console instead of sent.
+- `MIDTRANS_SERVER_KEY` / `MIDTRANS_CLIENT_KEY` / `MIDTRANS_ENV` (backend)
+  and `NEXT_PUBLIC_MIDTRANS_CLIENT_KEY` / `NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION`
+  (frontend) — optional; without the server key, `payment_method:
+  "midtrans"` is rejected and checkout only offers Transfer Manual. The
+  client key is not a secret (Midtrans's Snap.js is designed to take it
+  client-side) but the server key must never leave the backend `.env`.

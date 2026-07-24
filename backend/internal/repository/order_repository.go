@@ -53,6 +53,15 @@ func (r *OrderRepository) Save(order *models.Order) error {
 	return r.db.Save(order).Error
 }
 
+func (r *OrderRepository) FindByOrderNumber(orderNumber string) (*models.Order, error) {
+	var order models.Order
+	err := r.db.Where("order_number = ?", orderNumber).First(&order).Error
+	if err != nil {
+		return nil, err
+	}
+	return &order, nil
+}
+
 func (r *OrderRepository) AppendStatusHistory(h *models.OrderStatusHistory) error {
 	return r.db.Create(h).Error
 }

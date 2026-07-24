@@ -52,6 +52,11 @@ func registerPublicRoutes(api *gin.RouterGroup, h *Handlers) {
 	api.GET("/categories", h.Category.List)
 	api.GET("/products", h.Product.List)
 	api.GET("/products/:id", h.Product.Detail)
+
+	// Midtrans calls this server-to-server; it authenticates via the
+	// payload's signature (see OrderService.ApplyMidtransNotification),
+	// not a session, so it can't sit behind RequireAuth.
+	api.POST("/payments/midtrans/notification", h.Order.MidtransNotification)
 }
 
 // Any authenticated shopper: profile, addresses, cart, and their own orders.
@@ -87,6 +92,8 @@ func registerUserRoutes(api *gin.RouterGroup, h *Handlers, cfg *config.Config) {
 	order.POST("/:id/payment-proof", h.Order.UploadPaymentProof)
 	order.POST("/:id/cancel", h.Order.Cancel)
 	order.POST("/:id/confirm", h.Order.Confirm)
+	order.POST("/:id/midtrans-token", h.Order.MidtransToken)
+	order.GET("/:id/payment-status", h.Order.SyncPaymentStatus)
 }
 
 // Admin: super_admin and store_admin, with per-route role narrowing where

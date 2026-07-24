@@ -121,6 +121,58 @@ func (h *OrderHandler) Confirm(c *gin.Context) {
 	utils.Success(c, http.StatusOK, "order confirmed", nil)
 }
 
+// MidtransToken issues a Snap token for the order's checkout popup. Safe to
+// call again if the shopper closed the popup without paying — it just
+// returns a fresh token for the same order_id.
+func (h *OrderHandler) MidtransToken(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		utils.Error(c, http.StatusBadRequest, "invalid order id")
+		return
+	}
+	result, err := h.orders.CreateMidtransPayment(currentUserID(c), uint(id))
+	if err != nil {
+		utils.Error(c, orderErrorStatus(err), err.Error())
+		return
+	}
+	utils.Success(c, http.StatusOK, "ok", result)
+}
+
+// SyncPaymentStatus actively pulls this order's current status from
+// Midtrans — the reliable path in local dev, since Midtrans's webhook
+// can't reach localhost. The frontend calls this right after the Snap
+// popup reports success/pending.
+func (h *OrderHandler) SyncPaymentStatus(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		utils.Error(c, http.StatusBadRequest, "invalid order id")
+		return
+	}
+	order, err := h.orders.SyncMidtransStatus(currentUserID(c), uint(id))
+	if err != nil {
+		utils.Error(c, orderErrorStatus(err), err.Error())
+		return
+	}
+	utils.Success(c, http.StatusOK, "ok", order)
+}
+
+// MidtransNotification is the public webhook Midtrans calls server-to-
+// server on every transaction status change. No auth middleware applies
+// here — the signature check inside ApplyMidtransNotification is what
+// proves the request actually came from Midtrans.
+func (h *OrderHandler) MidtransNotification(c *gin.Context) {
+	var payload map[string]any
+	if err := c.ShouldBindJSON(&payload); err != nil {
+		utils.Error(c, http.StatusBadRequest, "invalid notification payload")
+		return
+	}
+	if err := h.orders.ApplyMidtransNotification(payload); err != nil {
+		utils.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	utils.Success(c, http.StatusOK, "ok", nil)
+}
+
 // --- Admin order management ---
 
 func (h *OrderHandler) AdminList(c *gin.Context) {
@@ -252,12 +304,15 @@ func orderErrorStatus(err error) int {
 	switch {
 	case errors.Is(err, service.ErrEmptyCart), errors.Is(err, service.ErrOutOfStock),
 		errors.Is(err, service.ErrUnsupportedPayment), errors.Is(err, service.ErrInvalidTransition),
-		errors.Is(err, service.ErrPaymentWindowPassed):
+		errors.Is(err, service.ErrPaymentWindowPassed), errors.Is(err, service.ErrNotMidtransOrder),
+		errors.Is(err, service.ErrOutOfRange):
 		return http.StatusUnprocessableEntity
 	case errors.Is(err, service.ErrAddressNotOwned), errors.Is(err, service.ErrOrderNotOwned):
 		return http.StatusNotFound
-	case errors.Is(err, service.ErrOutOfRange):
-		return http.StatusUnprocessableEntity
+	case errors.Is(err, service.ErrInvalidSignature):
+		return http.StatusBadRequest
+	case errors.Is(err, service.ErrMidtransNotConfigured):
+		return http.StatusServiceUnavailable
 	default:
 		return http.StatusInternalServerError
 	}

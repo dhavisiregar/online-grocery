@@ -76,6 +76,7 @@ type services struct {
 	rajaOngkir *service.RajaOngkirService
 	geocode    *service.GeocodeService
 	shipping   *service.ShippingService
+	midtrans   *service.MidtransService
 }
 
 func buildServices(db *gorm.DB, r *repositories, cfg *config.Config) *services {
@@ -84,14 +85,16 @@ func buildServices(db *gorm.DB, r *repositories, cfg *config.Config) *services {
 	rajaOngkirSvc := service.NewRajaOngkirService(cfg)
 	geocodeSvc := service.NewGeocodeService(cfg)
 	shippingSvc := service.NewShippingService(rajaOngkirSvc)
+	midtransSvc := service.NewMidtransService(cfg)
 	return &services{
 		auth:       service.NewAuthService(r.users, mailer, cfg),
 		stores:     storeSvc,
 		cart:       service.NewCartService(r.carts, r.products, r.users),
-		order:      service.NewOrderService(db, r.orders, r.carts, r.addresses, storeSvc, shippingSvc),
+		order:      service.NewOrderService(db, r.orders, r.carts, r.addresses, r.users, storeSvc, shippingSvc, midtransSvc),
 		rajaOngkir: rajaOngkirSvc,
 		geocode:    geocodeSvc,
 		shipping:   shippingSvc,
+		midtrans:   midtransSvc,
 	}
 }
 

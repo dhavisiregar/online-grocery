@@ -14,13 +14,17 @@ import (
 var (
 	ErrEmptyCart           = errors.New("keranjang Anda kosong")
 	ErrAddressNotOwned     = errors.New("alamat tidak ditemukan")
-	ErrUnsupportedPayment  = errors.New("metode pembayaran belum didukung, gunakan transfer manual")
+	ErrUnsupportedPayment  = errors.New("metode pembayaran tidak didukung")
 	ErrOrderNotOwned       = errors.New("pesanan tidak ditemukan")
 	ErrInvalidTransition   = errors.New("pesanan tidak dapat diproses pada status saat ini")
 	ErrPaymentWindowPassed = errors.New("batas waktu unggah bukti pembayaran sudah lewat")
+	ErrNotMidtransOrder    = errors.New("pesanan ini tidak menggunakan payment gateway")
+	ErrInvalidSignature    = errors.New("tanda tangan notifikasi tidak valid")
 
 	paymentWindow     = 1 * time.Hour
 	autoConfirmWindow = 7 * 24 * time.Hour
+
+	validPaymentMethods = map[string]bool{"manual_transfer": true, "midtrans": true}
 )
 
 type OrderService struct {
@@ -28,8 +32,10 @@ type OrderService struct {
 	orders    *repository.OrderRepository
 	carts     *repository.CartRepository
 	addresses *repository.AddressRepository
+	users     *repository.UserRepository
 	storeSvc  *StoreService
 	shipping  *ShippingService
+	midtrans  *MidtransService
 }
 
 func NewOrderService(
@@ -37,10 +43,15 @@ func NewOrderService(
 	orders *repository.OrderRepository,
 	carts *repository.CartRepository,
 	addresses *repository.AddressRepository,
+	users *repository.UserRepository,
 	storeSvc *StoreService,
 	shipping *ShippingService,
+	midtrans *MidtransService,
 ) *OrderService {
-	return &OrderService{db: db, orders: orders, carts: carts, addresses: addresses, storeSvc: storeSvc, shipping: shipping}
+	return &OrderService{
+		db: db, orders: orders, carts: carts, addresses: addresses, users: users,
+		storeSvc: storeSvc, shipping: shipping, midtrans: midtrans,
+	}
 }
 
 // Create validates the cart against the nearest warehouse to the shipping
@@ -51,8 +62,11 @@ func NewOrderService(
 // client-supplied cost, falling back to the cheapest option if omitted or
 // no longer offered.
 func (s *OrderService) Create(userID, addressID uint, paymentMethod, shippingCourier, shippingService string) (*models.Order, error) {
-	if paymentMethod != "manual_transfer" {
+	if !validPaymentMethods[paymentMethod] {
 		return nil, ErrUnsupportedPayment
+	}
+	if paymentMethod == "midtrans" && !s.midtrans.Configured() {
+		return nil, ErrMidtransNotConfigured
 	}
 
 	addr, err := s.addresses.FindByID(addressID)
@@ -236,6 +250,9 @@ func (s *OrderService) UploadPaymentProof(userID, orderID uint, url string) erro
 	if err != nil {
 		return err
 	}
+	if order.PaymentMethod == "midtrans" {
+		return ErrInvalidTransition
+	}
 	if order.Status != models.StatusWaitingPayment {
 		return ErrInvalidTransition
 	}
@@ -331,5 +348,118 @@ func (s *OrderService) Confirm(userID, orderID uint) error {
 	}
 	return s.orders.AppendStatusHistory(&models.OrderStatusHistory{
 		OrderID: order.ID, Status: order.Status, ChangedBy: models.ChangedByUser, Notes: "receipt confirmed",
+	})
+}
+
+// --- Midtrans payment gateway ---
+
+// CreateMidtransPayment issues a fresh Snap token for an unpaid order.
+// Safe to call repeatedly (e.g. the shopper closed the popup and clicked
+// "pay" again) — Midtrans just returns a new token for the same order_id.
+func (s *OrderService) CreateMidtransPayment(userID, orderID uint) (*SnapResult, error) {
+	order, err := s.Get(userID, orderID)
+	if err != nil {
+		return nil, err
+	}
+	if order.PaymentMethod != "midtrans" {
+		return nil, ErrNotMidtransOrder
+	}
+	if order.Status != models.StatusWaitingPayment {
+		return nil, ErrInvalidTransition
+	}
+
+	user, err := s.users.FindByID(userID)
+	if err != nil {
+		return nil, err
+	}
+	phone := ""
+	if user.Phone != nil {
+		phone = *user.Phone
+	}
+
+	grossAmount := int64(order.Total + 0.5) // round to nearest rupiah
+	return s.midtrans.CreateTransaction(order.OrderNumber, grossAmount, user.Name, user.Email, phone)
+}
+
+// SyncMidtransStatus actively queries Midtrans for this order's current
+// status — the only reliable way to confirm payment in local dev, where
+// Midtrans's server-to-server webhook can't reach localhost.
+func (s *OrderService) SyncMidtransStatus(userID, orderID uint) (*models.Order, error) {
+	order, err := s.Get(userID, orderID)
+	if err != nil {
+		return nil, err
+	}
+	if order.PaymentMethod != "midtrans" || order.Status != models.StatusWaitingPayment {
+		return order, nil
+	}
+
+	status, err := s.midtrans.CheckStatus(order.OrderNumber)
+	if err != nil {
+		return nil, err
+	}
+	if !s.midtrans.VerifySignature(status.OrderID, status.StatusCode, status.GrossAmount, status.SignatureKey) {
+		return nil, ErrInvalidSignature
+	}
+	if err := s.transitionFromMidtransStatus(order, status.TransactionStatus, status.FraudStatus); err != nil {
+		return nil, err
+	}
+	return order, nil
+}
+
+// ApplyMidtransNotification handles the server-to-server webhook Midtrans
+// calls on every status change. The payload is attacker-reachable (it's a
+// public endpoint), so nothing is trusted until the signature checks out.
+func (s *OrderService) ApplyMidtransNotification(payload map[string]any) error {
+	orderNumber, _ := payload["order_id"].(string)
+	statusCode, _ := payload["status_code"].(string)
+	grossAmount, _ := payload["gross_amount"].(string)
+	signatureKey, _ := payload["signature_key"].(string)
+	transactionStatus, _ := payload["transaction_status"].(string)
+	fraudStatus, _ := payload["fraud_status"].(string)
+
+	if !s.midtrans.VerifySignature(orderNumber, statusCode, grossAmount, signatureKey) {
+		return ErrInvalidSignature
+	}
+
+	order, err := s.orders.FindByOrderNumber(orderNumber)
+	if err != nil {
+		return err
+	}
+	return s.transitionFromMidtransStatus(order, transactionStatus, fraudStatus)
+}
+
+// transitionFromMidtransStatus maps Midtrans's transaction_status onto our
+// order lifecycle. "capture"/"settlement" (a confirmed real payment) skips
+// waiting_confirmation entirely and goes straight to processing, per spec:
+// payment-gateway orders can be processed automatically. Idempotent: it's
+// called from both the webhook and the manual sync, and can safely fire
+// more than once for the same status.
+func (s *OrderService) transitionFromMidtransStatus(order *models.Order, transactionStatus, fraudStatus string) error {
+	switch transactionStatus {
+	case "settlement":
+		return s.markPaid(order)
+	case "capture":
+		if fraudStatus == "accept" {
+			return s.markPaid(order)
+		}
+		return nil // challenge/deny fraud status: leave pending for manual review
+	case "deny", "cancel", "expire":
+		if order.Status == models.StatusWaitingPayment {
+			return s.cancel(order, models.ChangedBySystem, "midtrans: "+transactionStatus)
+		}
+	}
+	return nil // pending: no-op, order stays waiting_payment
+}
+
+func (s *OrderService) markPaid(order *models.Order) error {
+	if order.Status != models.StatusWaitingPayment {
+		return nil // already processed by an earlier notification/sync
+	}
+	order.Status = models.StatusProcessing
+	if err := s.orders.Save(order); err != nil {
+		return err
+	}
+	return s.orders.AppendStatusHistory(&models.OrderStatusHistory{
+		OrderID: order.ID, Status: order.Status, ChangedBy: models.ChangedBySystem, Notes: "midtrans payment confirmed",
 	})
 }

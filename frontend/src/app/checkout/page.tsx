@@ -18,6 +18,8 @@ export default function CheckoutPage() {
   );
 }
 
+const MIDTRANS_ENABLED = Boolean(process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY);
+
 function CheckoutContent() {
   const router = useRouter();
   const [items, setItems] = useState<CartItem[] | null>(null);
@@ -25,6 +27,7 @@ function CheckoutContent() {
   const [addressId, setAddressId] = useState<number | null>(null);
   const [shippingOptions, setShippingOptions] = useState<ShippingOption[] | null>(null);
   const [selected, setSelected] = useState<ShippingOption | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<"manual_transfer" | "midtrans">("manual_transfer");
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
   const [message, setMessage] = useState<string | null>(null);
 
@@ -70,7 +73,7 @@ function CheckoutContent() {
         method: "POST",
         body: {
           address_id: addressId,
-          payment_method: "manual_transfer",
+          payment_method: paymentMethod,
           shipping_courier: selected?.courier,
           shipping_service: selected?.service,
         },
@@ -176,7 +179,49 @@ function CheckoutContent() {
         </Section>
 
         <Section title="Metode Pembayaran">
-          <p className="text-sm text-foreground/70">Transfer Manual — unggah bukti bayar setelah pesanan dibuat.</p>
+          <div className="flex flex-col gap-2">
+            <label
+              className={`flex cursor-pointer items-start gap-3 rounded-md border p-3 text-sm ${
+                paymentMethod === "manual_transfer" ? "border-brand bg-brand-light/40" : "border-border"
+              }`}
+            >
+              <input
+                type="radio"
+                name="payment_method"
+                checked={paymentMethod === "manual_transfer"}
+                onChange={() => setPaymentMethod("manual_transfer")}
+                className="mt-1"
+              />
+              <span>
+                <span className="font-medium">Transfer Manual</span>
+                <br />
+                <span className="text-foreground/60">Unggah bukti bayar setelah pesanan dibuat.</span>
+              </span>
+            </label>
+
+            {MIDTRANS_ENABLED && (
+              <label
+                className={`flex cursor-pointer items-start gap-3 rounded-md border p-3 text-sm ${
+                  paymentMethod === "midtrans" ? "border-brand bg-brand-light/40" : "border-border"
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="payment_method"
+                  checked={paymentMethod === "midtrans"}
+                  onChange={() => setPaymentMethod("midtrans")}
+                  className="mt-1"
+                />
+                <span>
+                  <span className="font-medium">Bayar Online</span>
+                  <br />
+                  <span className="text-foreground/60">
+                    Kartu kredit, transfer VA, e-wallet, atau QRIS via Midtrans.
+                  </span>
+                </span>
+              </label>
+            )}
+          </div>
         </Section>
 
         <Section title="Ringkasan Pesanan">
