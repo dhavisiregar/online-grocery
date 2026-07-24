@@ -28,6 +28,7 @@ type createOrderRequest struct {
 	AddressID       uint   `json:"address_id" binding:"required"`
 	ShippingCourier string `json:"shipping_courier"`
 	ShippingService string `json:"shipping_service"`
+	UserVoucherID   *uint  `json:"user_voucher_id"`
 }
 
 func (h *OrderHandler) Create(c *gin.Context) {
@@ -37,12 +38,29 @@ func (h *OrderHandler) Create(c *gin.Context) {
 		return
 	}
 
-	order, err := h.orders.Create(currentUserID(c), req.AddressID, req.ShippingCourier, req.ShippingService)
+	order, err := h.orders.Create(currentUserID(c), req.AddressID, req.ShippingCourier, req.ShippingService, req.UserVoucherID)
 	if err != nil {
 		utils.Error(c, orderErrorStatus(err), err.Error())
 		return
 	}
 	utils.Success(c, http.StatusCreated, "order created", order)
+}
+
+// Preview computes subtotal/discounts/shipping/total for the shopper's
+// current cart without writing anything, so the checkout page can show the
+// exact numbers (including a selected voucher's saving) before paying.
+func (h *OrderHandler) Preview(c *gin.Context) {
+	var req createOrderRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	pricing, err := h.orders.Preview(currentUserID(c), req.AddressID, req.ShippingCourier, req.ShippingService, req.UserVoucherID)
+	if err != nil {
+		utils.Error(c, orderErrorStatus(err), err.Error())
+		return
+	}
+	utils.Success(c, http.StatusOK, "ok", pricingResponse(pricing))
 }
 
 type buyNowRequest struct {
@@ -52,6 +70,7 @@ type buyNowRequest struct {
 	AddressID       uint   `json:"address_id" binding:"required"`
 	ShippingCourier string `json:"shipping_courier"`
 	ShippingService string `json:"shipping_service"`
+	UserVoucherID   *uint  `json:"user_voucher_id"`
 }
 
 // CreateBuyNow checks out a single product directly — the "Beli Sekarang"
@@ -66,13 +85,51 @@ func (h *OrderHandler) CreateBuyNow(c *gin.Context) {
 
 	order, err := h.orders.CreateBuyNow(
 		currentUserID(c), req.ProductID, req.StoreID, req.Quantity,
-		req.AddressID, req.ShippingCourier, req.ShippingService,
+		req.AddressID, req.ShippingCourier, req.ShippingService, req.UserVoucherID,
 	)
 	if err != nil {
 		utils.Error(c, orderErrorStatus(err), err.Error())
 		return
 	}
 	utils.Success(c, http.StatusCreated, "order created", order)
+}
+
+// PreviewBuyNow is Preview's counterpart for the single-product checkout
+// flow.
+func (h *OrderHandler) PreviewBuyNow(c *gin.Context) {
+	var req buyNowRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	pricing, err := h.orders.PreviewBuyNow(
+		currentUserID(c), req.ProductID, req.StoreID, req.Quantity,
+		req.AddressID, req.ShippingCourier, req.ShippingService, req.UserVoucherID,
+	)
+	if err != nil {
+		utils.Error(c, orderErrorStatus(err), err.Error())
+		return
+	}
+	utils.Success(c, http.StatusOK, "ok", pricingResponse(pricing))
+}
+
+// pricingResponse flattens PricingResult into the same shape the frontend
+// already renders order totals from.
+func pricingResponse(p *service.PricingResult) gin.H {
+	return gin.H{
+		"store":                     p.Store,
+		"items":                     p.Items,
+		"subtotal":                  p.Subtotal,
+		"item_discount":             p.ItemDiscountTotal,
+		"min_purchase_discount":     p.MinPurchaseDiscount,
+		"voucher_discount":          p.VoucherDiscount,
+		"shipping_voucher_discount": p.ShippingVoucherDiscount,
+		"discount_amount":           p.DiscountAmount,
+		"shipping_cost":             p.Shipping.Cost,
+		"shipping_courier":          p.Shipping.Courier,
+		"shipping_service":          p.Shipping.Service,
+		"total":                     p.Total,
+	}
 }
 
 func (h *OrderHandler) List(c *gin.Context) {

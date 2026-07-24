@@ -33,6 +33,7 @@ type OrderService struct {
 	storeSvc  *StoreService
 	shipping  *ShippingService
 	midtrans  *MidtransService
+	discounts *DiscountService
 }
 
 func NewOrderService(
@@ -45,68 +46,116 @@ func NewOrderService(
 	storeSvc *StoreService,
 	shipping *ShippingService,
 	midtrans *MidtransService,
+	discounts *DiscountService,
 ) *OrderService {
 	return &OrderService{
 		db: db, orders: orders, carts: carts, addresses: addresses, users: users, products: products,
-		storeSvc: storeSvc, shipping: shipping, midtrans: midtrans,
+		storeSvc: storeSvc, shipping: shipping, midtrans: midtrans, discounts: discounts,
 	}
 }
 
-// Create checks out the shopper's entire cart against the nearest warehouse
-// to the shipping address, deducts stock via a StockJournal for each line,
-// and writes the order atomically. See models.StockJournal for why stock
-// is never edited directly. shippingCourier/shippingService select which
-// of the estimated options to charge — recomputed server-side rather than
-// trusting a client-supplied cost, falling back to the cheapest option if
-// omitted or no longer offered. Payment is always via Midtrans; that's the
-// only payment method this app supports.
-func (s *OrderService) Create(userID, addressID uint, shippingCourier, shippingService string) (*models.Order, error) {
-	if !s.midtrans.Configured() {
-		return nil, ErrMidtransNotConfigured
-	}
+// PricingResult is the full breakdown of what an order would cost, before
+// it's committed — shared by Preview (checkout UI, no side effects) and
+// Create/CreateBuyNow (which pass it straight into commitOrder).
+type PricingResult struct {
+	Store                   *models.Store
+	Address                 *models.UserAddress
+	Items                   []models.CartItem
+	Subtotal                float64
+	ItemDiscountTotal       float64
+	MinPurchaseDiscount     float64
+	VoucherDiscount         float64
+	ShippingVoucherDiscount float64
+	Shipping                ShippingOption
+	DiscountAmount          float64
+	Total                   float64
+	VoucherClaim            *models.UserVoucher
+}
 
-	addr, err := s.addresses.FindByID(addressID)
-	if err != nil || addr.UserID != userID {
-		return nil, ErrAddressNotOwned
-	}
-
-	cart, err := s.carts.GetOrCreateCart(userID)
+// Create checks out the shopper's entire cart. See CreateBuyNow for the
+// single-product equivalent, and computePricing for how discounts/
+// vouchers/shipping are combined. Payment is always via Midtrans — that's
+// the only payment method this app supports.
+func (s *OrderService) Create(userID, addressID uint, shippingCourier, shippingService string, userVoucherID *uint) (*models.Order, error) {
+	items, cartID, err := s.loadCartItems(userID)
 	if err != nil {
 		return nil, err
 	}
-	items, err := s.carts.ListItems(cart.ID)
+	pricing, err := s.computePricing(userID, addressID, items, shippingCourier, shippingService, userVoucherID)
 	if err != nil {
 		return nil, err
 	}
-	if len(items) == 0 {
-		return nil, ErrEmptyCart
-	}
-
-	store, err := s.storeSvc.NearestStore(&addr.Latitude, &addr.Longitude)
-	if err != nil {
-		return nil, err
-	}
-
-	weight := 0
-	for _, item := range items {
-		weight += item.Product.WeightGrams * item.Quantity
-	}
-	options := s.shipping.Estimate(store, addr, weight)
-	chosen := selectShippingOption(options, shippingCourier, shippingService)
-
-	return s.commitOrder(userID, addressID, store.ID, chosen, items, cart.ID)
+	return s.commitOrder(userID, addressID, pricing, cartID)
 }
 
 // CreateBuyNow checks out a single product directly, bypassing the cart
 // entirely — it never reads or writes cart_items, so it can't contaminate
-// whatever the shopper already has in their real cart. Everything else
-// (store resolution, stock check, stock deduction) is identical to Create.
-func (s *OrderService) CreateBuyNow(userID, productID, storeID uint, quantity int, addressID uint, shippingCourier, shippingService string) (*models.Order, error) {
-	if !s.midtrans.Configured() {
-		return nil, ErrMidtransNotConfigured
+// whatever the shopper already has in their real cart.
+func (s *OrderService) CreateBuyNow(userID, productID, storeID uint, quantity int, addressID uint, shippingCourier, shippingService string, userVoucherID *uint) (*models.Order, error) {
+	items, err := s.buyNowItems(productID, storeID, quantity)
+	if err != nil {
+		return nil, err
 	}
+	pricing, err := s.computePricing(userID, addressID, items, shippingCourier, shippingService, userVoucherID)
+	if err != nil {
+		return nil, err
+	}
+	return s.commitOrder(userID, addressID, pricing, 0)
+}
+
+// Preview computes the same pricing Create would, without writing
+// anything — the checkout page calls this to show subtotal/discounts/
+// shipping/total before the shopper commits to paying.
+func (s *OrderService) Preview(userID, addressID uint, shippingCourier, shippingService string, userVoucherID *uint) (*PricingResult, error) {
+	items, _, err := s.loadCartItems(userID)
+	if err != nil {
+		return nil, err
+	}
+	return s.computePricing(userID, addressID, items, shippingCourier, shippingService, userVoucherID)
+}
+
+func (s *OrderService) PreviewBuyNow(userID, productID, storeID uint, quantity int, addressID uint, shippingCourier, shippingService string, userVoucherID *uint) (*PricingResult, error) {
+	items, err := s.buyNowItems(productID, storeID, quantity)
+	if err != nil {
+		return nil, err
+	}
+	return s.computePricing(userID, addressID, items, shippingCourier, shippingService, userVoucherID)
+}
+
+func (s *OrderService) loadCartItems(userID uint) ([]models.CartItem, uint, error) {
+	cart, err := s.carts.GetOrCreateCart(userID)
+	if err != nil {
+		return nil, 0, err
+	}
+	items, err := s.carts.ListItems(cart.ID)
+	if err != nil {
+		return nil, 0, err
+	}
+	if len(items) == 0 {
+		return nil, 0, ErrEmptyCart
+	}
+	return items, cart.ID, nil
+}
+
+func (s *OrderService) buyNowItems(productID, storeID uint, quantity int) ([]models.CartItem, error) {
 	if quantity < 1 {
 		quantity = 1
+	}
+	product, err := s.products.FindByID(productID)
+	if err != nil {
+		return nil, err
+	}
+	return []models.CartItem{{ProductID: productID, StoreID: storeID, Quantity: quantity, Product: *product}}, nil
+}
+
+// computePricing resolves the fulfilling store, applies active product
+// (manual/BOGO) and storewide min-purchase discounts, quotes shipping,
+// and — if a claimed voucher was selected — validates and applies it to
+// either the item subtotal or the shipping cost. Nothing here is
+// persisted; the caller decides whether to commit it.
+func (s *OrderService) computePricing(userID, addressID uint, items []models.CartItem, shippingCourier, shippingService string, userVoucherID *uint) (*PricingResult, error) {
+	if !s.midtrans.Configured() {
+		return nil, ErrMidtransNotConfigured
 	}
 
 	addr, err := s.addresses.FindByID(addressID)
@@ -114,22 +163,60 @@ func (s *OrderService) CreateBuyNow(userID, productID, storeID uint, quantity in
 		return nil, ErrAddressNotOwned
 	}
 
-	product, err := s.products.FindByID(productID)
-	if err != nil {
-		return nil, err
-	}
-
 	store, err := s.storeSvc.NearestStore(&addr.Latitude, &addr.Longitude)
 	if err != nil {
 		return nil, err
 	}
 
-	weight := product.WeightGrams * quantity
+	var subtotal float64
+	productIDs := make([]uint, 0, len(items))
+	weight := 0
+	for _, it := range items {
+		subtotal += it.Product.Price * float64(it.Quantity)
+		weight += it.Product.WeightGrams * it.Quantity
+		productIDs = append(productIDs, it.ProductID)
+	}
+
+	_, itemDiscountTotal, err := s.discounts.ComputeItemDiscounts(store.ID, items)
+	if err != nil {
+		return nil, err
+	}
+
+	afterItems := subtotal - itemDiscountTotal
+	minPurchaseDiscount, err := s.discounts.ComputeMinPurchaseDiscount(store.ID, afterItems)
+	if err != nil {
+		return nil, err
+	}
+
 	options := s.shipping.Estimate(store, addr, weight)
 	chosen := selectShippingOption(options, shippingCourier, shippingService)
 
-	items := []models.CartItem{{ProductID: productID, StoreID: storeID, Quantity: quantity, Product: *product}}
-	return s.commitOrder(userID, addressID, store.ID, chosen, items, 0)
+	var voucherDiscount, shippingVoucherDiscount float64
+	var claim *models.UserVoucher
+	if userVoucherID != nil {
+		c, amt, isShipping, err := s.discounts.ValidateVoucherForOrder(
+			*userVoucherID, userID, productIDs, afterItems-minPurchaseDiscount, chosen.Cost,
+		)
+		if err != nil {
+			return nil, err
+		}
+		claim = c
+		if isShipping {
+			shippingVoucherDiscount = amt
+		} else {
+			voucherDiscount = amt
+		}
+	}
+
+	discountAmount := itemDiscountTotal + minPurchaseDiscount + voucherDiscount + shippingVoucherDiscount
+	total := subtotal - discountAmount + chosen.Cost
+
+	return &PricingResult{
+		Store: store, Address: addr, Items: items, Subtotal: subtotal,
+		ItemDiscountTotal: itemDiscountTotal, MinPurchaseDiscount: minPurchaseDiscount,
+		VoucherDiscount: voucherDiscount, ShippingVoucherDiscount: shippingVoucherDiscount,
+		Shipping: chosen, DiscountAmount: discountAmount, Total: total, VoucherClaim: claim,
+	}, nil
 }
 
 // selectShippingOption never trusts a client-supplied cost — only the
@@ -144,16 +231,17 @@ func selectShippingOption(options []ShippingOption, courier, service string) Shi
 	return options[0]
 }
 
-// commitOrder writes the order, its items, and the stock deduction as one
-// transaction. clearCartID, when non-zero, also empties that cart — pass 0
-// for a buy-now checkout that never touched the cart to begin with.
-func (s *OrderService) commitOrder(userID, addressID, storeID uint, shipping ShippingOption, items []models.CartItem, clearCartID uint) (*models.Order, error) {
+// commitOrder writes the order, its items, the stock deduction, and the
+// voucher claim (if any) as one transaction. clearCartID, when non-zero,
+// also empties that cart — pass 0 for a buy-now checkout that never
+// touched the cart to begin with.
+func (s *OrderService) commitOrder(userID, addressID uint, pricing *PricingResult, clearCartID uint) (*models.Order, error) {
 	var order *models.Order
+	items := pricing.Items
+	storeID := pricing.Store.ID
 
 	err := s.db.Transaction(func(tx *gorm.DB) error {
 		orderItems := make([]models.OrderItem, 0, len(items))
-		var subtotal float64
-
 		for _, item := range items {
 			var sp models.StoreProduct
 			err := tx.Where("store_id = ? AND product_id = ?", storeID, item.ProductID).First(&sp).Error
@@ -162,7 +250,6 @@ func (s *OrderService) commitOrder(userID, addressID, storeID uint, shipping Shi
 			}
 
 			lineTotal := item.Product.Price * float64(item.Quantity)
-			subtotal += lineTotal
 			orderItems = append(orderItems, models.OrderItem{
 				ProductID:   item.ProductID,
 				ProductName: item.Product.Name,
@@ -184,13 +271,22 @@ func (s *OrderService) commitOrder(userID, addressID, storeID uint, shipping Shi
 			StoreID:         storeID,
 			AddressID:       addressID,
 			Status:          models.StatusWaitingPayment,
-			Subtotal:        subtotal,
-			ShippingCost:    shipping.Cost,
-			ShippingCourier: shipping.Courier,
-			ShippingService: shipping.Service,
-			Total:           subtotal + shipping.Cost,
+			Subtotal:        pricing.Subtotal,
+			DiscountAmount:  pricing.DiscountAmount,
+			ShippingCost:    pricing.Shipping.Cost,
+			ShippingCourier: pricing.Shipping.Courier,
+			ShippingService: pricing.Shipping.Service,
+			Total:           pricing.Total,
 			PaymentMethod:   "midtrans",
 			PaymentDeadline: &deadline,
+		}
+		if pricing.VoucherClaim != nil {
+			voucherID := pricing.VoucherClaim.VoucherID
+			if pricing.VoucherClaim.Voucher.Type == models.VoucherShipping {
+				order.ShippingVoucherID = &voucherID
+			} else {
+				order.VoucherID = &voucherID
+			}
 		}
 
 		if err := tx.Create(order).Error; err != nil {
@@ -211,6 +307,12 @@ func (s *OrderService) commitOrder(userID, addressID, storeID uint, shipping Shi
 		refID := order.ID
 		for _, item := range items {
 			if err := repository.AdjustStock(tx, storeID, item.ProductID, models.StockJournalOut, item.Quantity, models.StockRefOrder, &refID, userID, "order "+order.OrderNumber); err != nil {
+				return err
+			}
+		}
+
+		if pricing.VoucherClaim != nil {
+			if err := repository.MarkClaimUsedTx(tx, pricing.VoucherClaim); err != nil {
 				return err
 			}
 		}
@@ -261,9 +363,12 @@ func (s *OrderService) applyLazyTransitions(order *models.Order) error {
 		if err := s.orders.Save(order); err != nil {
 			return err
 		}
-		return s.orders.AppendStatusHistory(&models.OrderStatusHistory{
+		if err := s.orders.AppendStatusHistory(&models.OrderStatusHistory{
 			OrderID: order.ID, Status: order.Status, ChangedBy: models.ChangedBySystem, Notes: "auto-confirmed after 7 days",
-		})
+		}); err != nil {
+			return err
+		}
+		s.afterConfirmed(order)
 	}
 	return nil
 }
@@ -352,9 +457,23 @@ func (s *OrderService) Confirm(userID, orderID uint) error {
 	if err := s.orders.Save(order); err != nil {
 		return err
 	}
-	return s.orders.AppendStatusHistory(&models.OrderStatusHistory{
+	if err := s.orders.AppendStatusHistory(&models.OrderStatusHistory{
 		OrderID: order.ID, Status: order.Status, ChangedBy: models.ChangedByUser, Notes: "receipt confirmed",
-	})
+	}); err != nil {
+		return err
+	}
+	s.afterConfirmed(order)
+	return nil
+}
+
+// afterConfirmed checks the loyalty-voucher threshold once an order is
+// fully done (whether the shopper confirmed it or the 7-day auto-confirm
+// did). Best-effort — a voucher hiccup shouldn't surface as an order error.
+func (s *OrderService) afterConfirmed(order *models.Order) {
+	count, err := s.orders.CountConfirmedByUser(order.UserID)
+	if err == nil {
+		_ = s.discounts.MaybeGrantLoyaltyShippingVoucher(order.UserID, count)
+	}
 }
 
 // --- Midtrans payment gateway ---
@@ -462,7 +581,11 @@ func (s *OrderService) markPaid(order *models.Order) error {
 	if err := s.orders.Save(order); err != nil {
 		return err
 	}
-	return s.orders.AppendStatusHistory(&models.OrderStatusHistory{
+	if err := s.orders.AppendStatusHistory(&models.OrderStatusHistory{
 		OrderID: order.ID, Status: order.Status, ChangedBy: models.ChangedBySystem, Notes: "midtrans payment confirmed",
-	})
+	}); err != nil {
+		return err
+	}
+	_ = s.discounts.MaybeGrantMinPurchaseVoucher(order.UserID, order.Subtotal)
+	return nil
 }

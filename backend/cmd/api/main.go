@@ -53,6 +53,8 @@ type repositories struct {
 	carts      *repository.CartRepository
 	orders     *repository.OrderRepository
 	inventory  *repository.InventoryRepository
+	discounts  *repository.DiscountRepository
+	vouchers   *repository.VoucherRepository
 }
 
 func buildRepositories(db *gorm.DB) *repositories {
@@ -65,6 +67,8 @@ func buildRepositories(db *gorm.DB) *repositories {
 		carts:      repository.NewCartRepository(db),
 		orders:     repository.NewOrderRepository(db),
 		inventory:  repository.NewInventoryRepository(db),
+		discounts:  repository.NewDiscountRepository(db),
+		vouchers:   repository.NewVoucherRepository(db),
 	}
 }
 
@@ -77,6 +81,8 @@ type services struct {
 	geocode    *service.GeocodeService
 	shipping   *service.ShippingService
 	midtrans   *service.MidtransService
+	discount   *service.DiscountService
+	report     *service.ReportService
 }
 
 func buildServices(db *gorm.DB, r *repositories, cfg *config.Config) *services {
@@ -86,15 +92,18 @@ func buildServices(db *gorm.DB, r *repositories, cfg *config.Config) *services {
 	geocodeSvc := service.NewGeocodeService(cfg)
 	shippingSvc := service.NewShippingService(rajaOngkirSvc)
 	midtransSvc := service.NewMidtransService(cfg)
+	discountSvc := service.NewDiscountService(r.discounts, r.vouchers)
 	return &services{
-		auth:       service.NewAuthService(r.users, mailer, cfg),
+		auth:       service.NewAuthService(r.users, mailer, cfg, discountSvc),
 		stores:     storeSvc,
 		cart:       service.NewCartService(r.carts, r.products, r.users),
-		order:      service.NewOrderService(db, r.orders, r.carts, r.addresses, r.users, r.products, storeSvc, shippingSvc, midtransSvc),
+		order:      service.NewOrderService(db, r.orders, r.carts, r.addresses, r.users, r.products, storeSvc, shippingSvc, midtransSvc, discountSvc),
 		rajaOngkir: rajaOngkirSvc,
 		geocode:    geocodeSvc,
 		shipping:   shippingSvc,
 		midtrans:   midtransSvc,
+		discount:   discountSvc,
+		report:     service.NewReportService(db),
 	}
 }
 
@@ -107,10 +116,10 @@ func buildHandlers(r *repositories, s *services, cfg *config.Config) *routes.Han
 		Category:  handlers.NewCategoryHandler(r.categories),
 		Product:   handlers.NewProductHandler(r.products, s.stores, cfg),
 		Inventory: handlers.NewInventoryHandler(r.inventory, r.stores),
-		Discount:  handlers.NewDiscountHandler(),
+		Discount:  handlers.NewDiscountHandler(s.discount, r.stores),
 		Cart:      handlers.NewCartHandler(s.cart),
 		Order:     handlers.NewOrderHandler(s.order, r.stores),
-		Report:    handlers.NewReportHandler(),
+		Report:    handlers.NewReportHandler(s.report, r.stores),
 		Location:  handlers.NewLocationHandler(s.rajaOngkir, s.geocode),
 	}
 }

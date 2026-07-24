@@ -1,12 +1,14 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 
 import { api, ApiError, resolveUploadUrl } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { RequireAuth } from "@/components/auth/RequireAuth";
 import { FormField, inputClass, primaryButtonClass } from "@/components/auth/AuthCard";
+import { formatIDR } from "@/lib/format";
+import { VOUCHER_SOURCE_LABEL, VOUCHER_TYPE_LABEL, type UserVoucher } from "@/types";
 
 export default function ProfilePage() {
   return (
@@ -74,6 +76,83 @@ function ProfileContent() {
       </div>
 
       <ProfileForm onUpdated={refresh} initialName={user.name} initialPhone={user.phone ?? ""} />
+
+      <VoucherWallet />
+    </div>
+  );
+}
+
+function VoucherWallet() {
+  const [vouchers, setVouchers] = useState<UserVoucher[] | null>(null);
+  const [code, setCode] = useState("");
+  const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
+  const [message, setMessage] = useState<string | null>(null);
+
+  function loadVouchers() {
+    api<{ items: UserVoucher[] }>("/api/vouchers/mine")
+      .then((res) => setVouchers(res.items))
+      .catch(() => setVouchers([]));
+  }
+
+  useEffect(() => {
+    loadVouchers();
+  }, []);
+
+  async function handleClaim(e: FormEvent) {
+    e.preventDefault();
+    setStatus("loading");
+    setMessage(null);
+    try {
+      await api("/api/vouchers/claim", { method: "POST", body: { code } });
+      setCode("");
+      setMessage("Voucher berhasil diklaim.");
+      setStatus("idle");
+      loadVouchers();
+    } catch (err) {
+      setStatus("error");
+      setMessage(err instanceof ApiError ? err.message : "Gagal mengklaim voucher");
+    }
+  }
+
+  return (
+    <div className="mt-6 rounded-xl border border-border p-6">
+      <h2 className="font-semibold">Voucher Saya</h2>
+
+      <form onSubmit={handleClaim} className="mt-3 flex gap-2">
+        <input
+          required
+          value={code}
+          onChange={(e) => setCode(e.target.value.toUpperCase())}
+          placeholder="Masukkan kode promo"
+          className={`${inputClass} flex-1`}
+        />
+        <button type="submit" disabled={status === "loading"} className="rounded-md bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark disabled:opacity-60">
+          {status === "loading" ? "Mengklaim…" : "Klaim"}
+        </button>
+      </form>
+      {message && (
+        <p className={`mt-2 text-sm ${status === "error" ? "text-red-600" : "text-brand-dark"}`}>{message}</p>
+      )}
+
+      <div className="mt-4 flex flex-col gap-2">
+        {vouchers === null && <p className="text-sm text-foreground/60">Memuat…</p>}
+        {vouchers?.length === 0 && <p className="text-sm text-foreground/60">Belum ada voucher tersimpan.</p>}
+        {vouchers?.map((uv) => (
+          <div key={uv.id} className="flex items-center justify-between rounded-md border border-border p-3 text-sm">
+            <div>
+              <p className="font-mono font-medium">{uv.voucher.code}</p>
+              <p className="text-foreground/60">
+                {VOUCHER_TYPE_LABEL[uv.voucher.type]} —{" "}
+                {uv.voucher.value_type === "percentage" ? `${uv.voucher.value}%` : formatIDR(uv.voucher.value)}
+                {" · "}dari {VOUCHER_SOURCE_LABEL[uv.obtained_from]}
+              </p>
+            </div>
+            <span className="whitespace-nowrap text-xs text-foreground/50">
+              s.d. {new Date(uv.voucher.expires_at).toLocaleDateString("id-ID")}
+            </span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

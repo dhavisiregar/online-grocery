@@ -8,7 +8,7 @@ import { api, ApiError } from "@/lib/api";
 import { RequireAuth } from "@/components/auth/RequireAuth";
 import { primaryButtonClass } from "@/components/auth/AuthCard";
 import { formatIDR } from "@/lib/format";
-import type { CartItem, Order, ProductWithStock, ShippingOption, UserAddress } from "@/types";
+import type { CartItem, Order, PricingPreview, ProductWithStock, ShippingOption, UserAddress, UserVoucher } from "@/types";
 
 export default function CheckoutPage() {
   return (
@@ -34,6 +34,10 @@ function CheckoutContent() {
   const [addressId, setAddressId] = useState<number | null>(null);
   const [shippingOptions, setShippingOptions] = useState<ShippingOption[] | null>(null);
   const [selected, setSelected] = useState<ShippingOption | null>(null);
+  const [vouchers, setVouchers] = useState<UserVoucher[]>([]);
+  const [voucherId, setVoucherId] = useState<number | null>(null);
+  const [pricing, setPricing] = useState<PricingPreview | null>(null);
+  const [pricingError, setPricingError] = useState<string | null>(null);
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
   const [message, setMessage] = useState<string | null>(null);
 
@@ -66,6 +70,10 @@ function CheckoutContent() {
         if (primary) setAddressId(primary.id);
       })
       .catch(() => setAddresses([]));
+
+    api<{ items: UserVoucher[] }>("/api/vouchers/mine")
+      .then((res) => setVouchers(res.items))
+      .catch(() => setVouchers([]));
   }, [isBuyNow, buyNowProductId, buyNowStoreId, buyNowQty]);
 
   useEffect(() => {
@@ -87,8 +95,38 @@ function CheckoutContent() {
     });
   }, [addressId]);
 
-  const subtotal = items?.reduce((sum, i) => sum + (i.product?.price ?? 0) * i.quantity, 0) ?? 0;
-  const shippingCost = selected?.cost ?? 0;
+  // Live pricing preview — the authoritative subtotal/discount/total, so
+  // the summary always matches what committing the order would charge.
+  useEffect(() => {
+    queueMicrotask(() => {
+      if (!addressId || !selected) {
+        setPricing(null);
+        return;
+      }
+      setPricingError(null);
+      const body = {
+        address_id: addressId,
+        shipping_courier: selected.courier,
+        shipping_service: selected.service,
+        user_voucher_id: voucherId ?? undefined,
+      };
+      const previewPath = isBuyNow ? "/api/orders/buy-now/preview" : "/api/orders/preview";
+      const previewBody = isBuyNow
+        ? { ...body, product_id: Number(buyNowProductId), store_id: Number(buyNowStoreId), quantity: buyNowQty }
+        : body;
+      api<PricingPreview>(previewPath, { method: "POST", body: previewBody })
+        .then(setPricing)
+        .catch((err) => {
+          setPricing(null);
+          setPricingError(err instanceof ApiError ? err.message : "Gagal menghitung total pesanan");
+        });
+    });
+  }, [addressId, selected, voucherId, isBuyNow, buyNowProductId, buyNowStoreId, buyNowQty]);
+
+  const subtotal = pricing?.subtotal ?? items?.reduce((sum, i) => sum + (i.product?.price ?? 0) * i.quantity, 0) ?? 0;
+  const shippingCost = pricing?.shipping_cost ?? selected?.cost ?? 0;
+  const discountAmount = pricing?.discount_amount ?? 0;
+  const total = pricing ? pricing.total : subtotal + shippingCost;
 
   async function handleSubmit() {
     if (!addressId) return;
@@ -105,6 +143,7 @@ function CheckoutContent() {
               address_id: addressId,
               shipping_courier: selected?.courier,
               shipping_service: selected?.service,
+              user_voucher_id: voucherId ?? undefined,
             },
           })
         : await api<Order>("/api/orders", {
@@ -113,6 +152,7 @@ function CheckoutContent() {
               address_id: addressId,
               shipping_courier: selected?.courier,
               shipping_service: selected?.service,
+              user_voucher_id: voucherId ?? undefined,
             },
           });
       router.push(`/orders/${order.id}`);
@@ -231,18 +271,67 @@ function CheckoutContent() {
           </p>
         </Section>
 
+        <Section title="Voucher">
+          {vouchers.length === 0 ? (
+            <p className="text-sm text-foreground/60">
+              Belum ada voucher tersimpan.{" "}
+              <Link href="/profile" className="text-brand-dark hover:underline">
+                Klaim kode promo →
+              </Link>
+            </p>
+          ) : (
+            <div className="flex flex-col gap-2">
+              <label
+                className={`flex cursor-pointer items-center gap-3 rounded-md border p-3 text-sm ${
+                  voucherId === null ? "border-brand bg-brand-light/40" : "border-border"
+                }`}
+              >
+                <input type="radio" name="voucher" checked={voucherId === null} onChange={() => setVoucherId(null)} />
+                Tidak pakai voucher
+              </label>
+              {vouchers.map((uv) => (
+                <label
+                  key={uv.id}
+                  className={`flex cursor-pointer items-center justify-between gap-3 rounded-md border p-3 text-sm ${
+                    voucherId === uv.id ? "border-brand bg-brand-light/40" : "border-border"
+                  }`}
+                >
+                  <span className="flex items-center gap-3">
+                    <input type="radio" name="voucher" checked={voucherId === uv.id} onChange={() => setVoucherId(uv.id)} />
+                    <span>
+                      <span className="font-mono font-medium">{uv.voucher.code}</span>
+                      <br />
+                      <span className="text-foreground/60">
+                        {uv.voucher.value_type === "percentage" ? `${uv.voucher.value}%` : formatIDR(uv.voucher.value)}
+                        {uv.voucher.type === "shipping" ? " ongkos kirim" : ""}
+                      </span>
+                    </span>
+                  </span>
+                </label>
+              ))}
+            </div>
+          )}
+          {pricingError && <p className="mt-2 text-sm text-red-600">{pricingError}</p>}
+        </Section>
+
         <Section title="Ringkasan Pesanan">
           <div className="flex justify-between text-sm">
             <span className="text-foreground/60">Subtotal</span>
             <span>{formatIDR(subtotal)}</span>
           </div>
+          {discountAmount > 0 && (
+            <div className="flex justify-between text-sm">
+              <span className="text-foreground/60">Diskon</span>
+              <span className="text-red-600">-{formatIDR(discountAmount)}</span>
+            </div>
+          )}
           <div className="flex justify-between text-sm">
             <span className="text-foreground/60">Ongkos Kirim</span>
             <span>{selected ? formatIDR(shippingCost) : "-"}</span>
           </div>
           <div className="mt-2 flex justify-between border-t border-border pt-2 text-sm font-semibold">
             <span>Total</span>
-            <span>{formatIDR(subtotal + shippingCost)}</span>
+            <span>{formatIDR(total)}</span>
           </div>
         </Section>
 

@@ -69,6 +69,7 @@ const (
 	VoucherSourceReferral    VoucherSource = "referral"
 	VoucherSourceMinPurchase VoucherSource = "min_purchase"
 	VoucherSourcePromo       VoucherSource = "promo"
+	VoucherSourceLoyalty     VoucherSource = "loyalty"
 )
 
 // UserVoucher is a voucher claimed/awarded to a specific user; IsUsed once

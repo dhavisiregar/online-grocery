@@ -41,3 +41,14 @@ func OrderNumber() (string, error) {
 	}
 	return fmt.Sprintf("ORD-%s-%s", time.Now().Format("20060102"), strings.ToUpper(hex.EncodeToString(b))), nil
 }
+
+// RandomCode returns a short, unique voucher code for system-granted
+// vouchers (referral rewards, loyalty perks) — not meant to be memorable,
+// just unique and traceable back to why it was issued.
+func RandomCode(prefix string) (string, error) {
+	b := make([]byte, 4)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%s-%s", strings.ToUpper(prefix), strings.ToUpper(hex.EncodeToString(b))), nil
+}

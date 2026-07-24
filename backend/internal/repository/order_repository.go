@@ -66,6 +66,16 @@ func (r *OrderRepository) AppendStatusHistory(h *models.OrderStatusHistory) erro
 	return r.db.Create(h).Error
 }
 
+// CountConfirmedByUser counts a user's fully-completed (confirmed) orders
+// — used to decide when the loyalty voucher threshold is hit.
+func (r *OrderRepository) CountConfirmedByUser(userID uint) (int64, error) {
+	var count int64
+	err := r.db.Model(&models.Order{}).
+		Where("user_id = ? AND status = ?", userID, models.StatusConfirmed).
+		Count(&count).Error
+	return count, err
+}
+
 type OrderFilter struct {
 	UserID  uint
 	StoreID uint

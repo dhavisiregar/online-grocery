@@ -139,6 +139,81 @@ export interface CartItem {
   product?: Product;
 }
 
+export type DiscountType = "manual" | "min_purchase" | "buy_one_get_one";
+export type ValueType = "percentage" | "nominal";
+export type VoucherType = "product" | "total" | "shipping";
+
+export interface Discount {
+  id: number;
+  store_id: number;
+  product_id?: number;
+  type: DiscountType;
+  value_type: ValueType;
+  value: number;
+  min_purchase?: number;
+  max_discount?: number;
+  start_date: string;
+  end_date: string;
+}
+
+export interface Voucher {
+  id: number;
+  code: string;
+  type: VoucherType;
+  value_type: ValueType;
+  value: number;
+  max_discount?: number;
+  min_purchase?: number;
+  product_id?: number;
+  expires_at: string;
+}
+
+export type VoucherSource = "referral" | "min_purchase" | "promo" | "loyalty";
+
+export interface UserVoucher {
+  id: number;
+  user_id: number;
+  voucher_id: number;
+  is_used: boolean;
+  used_at?: string;
+  obtained_from: VoucherSource;
+  voucher: Voucher;
+}
+
+export const DISCOUNT_TYPE_LABEL: Record<DiscountType, string> = {
+  manual: "Diskon Produk",
+  min_purchase: "Minimum Belanja",
+  buy_one_get_one: "Beli 1 Gratis 1",
+};
+
+export const VOUCHER_TYPE_LABEL: Record<VoucherType, string> = {
+  product: "Produk Tertentu",
+  total: "Total Belanja",
+  shipping: "Ongkos Kirim",
+};
+
+export const VOUCHER_SOURCE_LABEL: Record<VoucherSource, string> = {
+  referral: "Referral",
+  min_purchase: "Minimum Belanja",
+  promo: "Kode Promo",
+  loyalty: "Loyalitas Pelanggan",
+};
+
+export interface PricingPreview {
+  store: Store;
+  items: CartItem[];
+  subtotal: number;
+  item_discount: number;
+  min_purchase_discount: number;
+  voucher_discount: number;
+  shipping_voucher_discount: number;
+  discount_amount: number;
+  shipping_cost: number;
+  shipping_courier: string;
+  shipping_service: string;
+  total: number;
+}
+
 export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
   waiting_payment: "Menunggu Pembayaran",
   waiting_confirmation: "Menunggu Konfirmasi Pembayaran",

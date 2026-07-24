@@ -20,13 +20,14 @@ var (
 )
 
 type AuthService struct {
-	users  *repository.UserRepository
-	mailer *Mailer
-	cfg    *config.Config
+	users     *repository.UserRepository
+	mailer    *Mailer
+	cfg       *config.Config
+	discounts *DiscountService
 }
 
-func NewAuthService(users *repository.UserRepository, mailer *Mailer, cfg *config.Config) *AuthService {
-	return &AuthService{users: users, mailer: mailer, cfg: cfg}
+func NewAuthService(users *repository.UserRepository, mailer *Mailer, cfg *config.Config, discounts *DiscountService) *AuthService {
+	return &AuthService{users: users, mailer: mailer, cfg: cfg, discounts: discounts}
 }
 
 // Register creates an unverified user with no password yet, then emails a
@@ -62,9 +63,11 @@ func (s *AuthService) resolveReferrer(code string) *uint {
 	if code == "" {
 		return nil
 	}
-	// Referral reward (voucher grant) is issued by the voucher service once
-	// the referred user verifies; here we only record the relationship.
-	return nil
+	referrer, err := s.users.FindByReferralCode(code)
+	if err != nil {
+		return nil
+	}
+	return &referrer.ID
 }
 
 func (s *AuthService) issueVerificationToken(user *models.User) error {
@@ -116,6 +119,14 @@ func (s *AuthService) VerifyAndSetPassword(token, password string) error {
 	user.IsVerified = true
 	if err := s.users.Update(user); err != nil {
 		return err
+	}
+
+	// Referral reward: both sides get a voucher once the referred signup
+	// actually completes (verifies), not just at registration. Best-effort
+	// — a voucher hiccup shouldn't block the user from finishing signup.
+	if user.ReferredBy != nil {
+		_ = s.discounts.GrantReferralVoucher(user.ID)
+		_ = s.discounts.GrantReferralVoucher(*user.ReferredBy)
 	}
 
 	now := time.Now()

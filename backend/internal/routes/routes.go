@@ -87,13 +87,19 @@ func registerUserRoutes(api *gin.RouterGroup, h *Handlers, cfg *config.Config) {
 
 	order := g.Group("/orders")
 	order.POST("", h.Order.Create)
+	order.POST("/preview", h.Order.Preview)
 	order.POST("/buy-now", h.Order.CreateBuyNow)
+	order.POST("/buy-now/preview", h.Order.PreviewBuyNow)
 	order.GET("", h.Order.List)
 	order.GET("/:id", h.Order.Detail)
 	order.POST("/:id/cancel", h.Order.Cancel)
 	order.POST("/:id/confirm", h.Order.Confirm)
 	order.POST("/:id/midtrans-token", h.Order.MidtransToken)
 	order.GET("/:id/payment-status", h.Order.SyncPaymentStatus)
+
+	vouchers := g.Group("/vouchers")
+	vouchers.GET("/mine", h.Discount.MyVouchers)
+	vouchers.POST("/claim", h.Discount.ClaimVoucher)
 }
 
 // Admin: super_admin and store_admin, with per-route role narrowing where
