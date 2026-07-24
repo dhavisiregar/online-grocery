@@ -1,4 +1,4 @@
-# FreshMart — Online Grocery Web App
+# GrocerGo — Online Grocery Web App
 
 A multi-branch grocery e-commerce app. Shoppers see products and stock from
 their nearest store branch (resolved from device geolocation); store admins
@@ -90,7 +90,7 @@ to the main store.
   the auth flow stays testable without any mail server configured.
 - **Pagination/filtering/sorting** for list endpoints is server-side only
   (`utils.ParsePagination`), per the spec's standardization requirements.
-- **Order creation**: resolves the nearest store to the *shipping address*
+- **Order creation**: resolves the nearest store to the _shipping address_
   (not the cart's browsing store), checks stock at that store inside a DB
   transaction, deducts it via `StockJournal` entries, and clears the cart —
   all atomically (`internal/service/order_service.go`). Cancelling restores
@@ -109,7 +109,7 @@ to the main store.
   shipping cost — only the courier+service selection, matched server-side
   against a freshly recomputed rate list (`OrderService.selectShippingOption`).
 - **Order deadlines are lazy, not cron-based**: the 1-hour payment window
-  and 7-day auto-confirm window are enforced when an order is *read*
+  and 7-day auto-confirm window are enforced when an order is _read_
   (`OrderService.applyLazyTransitions`), not by a background scheduler.
   Good enough for local dev; swap in a real job runner before production.
 
@@ -123,36 +123,36 @@ message instead of failing silently.
 
 ### Feature 1 — Homepage, Auth, Address & Shipping, Store Management
 
-| Area | Status |
-| --- | --- |
-| Landing page (navbar, hero carousel, product list, footer) | ✅ Built |
-| Geolocation prompt + nearest-store resolution | ✅ Built (backend + frontend) |
-| Register / verify+set-password / login / reset password | ✅ Built end-to-end |
-| Profile view + update (name/phone) | ✅ Built (photo upload validation still open) |
-| User addresses (CRUD, primary) | ✅ Built end-to-end, incl. "use current location" |
-| Shipping cost calculation | ✅ Real RajaOngkir rates + OpenCage geocoding (distance fallback if unset) |
-| Store management (super admin CRUD + assign store admin) | ✅ Built end-to-end |
+| Area                                                       | Status                                                                     |
+| ---------------------------------------------------------- | -------------------------------------------------------------------------- |
+| Landing page (navbar, hero carousel, product list, footer) | ✅ Built                                                                   |
+| Geolocation prompt + nearest-store resolution              | ✅ Built (backend + frontend)                                              |
+| Register / verify+set-password / login / reset password    | ✅ Built end-to-end                                                        |
+| Profile view + update (name/phone)                         | ✅ Built (photo upload validation still open)                              |
+| User addresses (CRUD, primary)                             | ✅ Built end-to-end, incl. "use current location"                          |
+| Shipping cost calculation                                  | ✅ Real RajaOngkir rates + OpenCage geocoding (distance fallback if unset) |
+| Store management (super admin CRUD + assign store admin)   | ✅ Built end-to-end                                                        |
 
 ### Feature 2 — Admin Accounts, Products, Inventory, Discounts, Reports
 
-| Area | Status |
-| --- | --- |
-| Admin user/store-admin listing | ✅ Built |
-| Store admin create/update/delete (admin-provisioned, pre-verified) | ✅ Built end-to-end |
-| Product catalog, search, detail (with per-store stock) | ✅ Built |
-| Product/category create/update/delete + multi-image upload | ✅ Built end-to-end (super admin write, store admin read-only) |
-| Inventory (stock journal, adjustments, store-scoped) | ✅ Built end-to-end |
-| Discounts (manual/min-purchase/BOGO) + vouchers | ⏳ Stubbed — see `models.Discount`, `models.Voucher` |
-| Sales & stock reports | ⏳ Stubbed |
+| Area                                                               | Status                                                         |
+| ------------------------------------------------------------------ | -------------------------------------------------------------- |
+| Admin user/store-admin listing                                     | ✅ Built                                                       |
+| Store admin create/update/delete (admin-provisioned, pre-verified) | ✅ Built end-to-end                                            |
+| Product catalog, search, detail (with per-store stock)             | ✅ Built                                                       |
+| Product/category create/update/delete + multi-image upload         | ✅ Built end-to-end (super admin write, store admin read-only) |
+| Inventory (stock journal, adjustments, store-scoped)               | ✅ Built end-to-end                                            |
+| Discounts (manual/min-purchase/BOGO) + vouchers                    | ⏳ Stubbed — see `models.Discount`, `models.Voucher`           |
+| Sales & stock reports                                              | ⏳ Stubbed                                                     |
 
 ### Feature 3 — Cart, Checkout, Order Tracking, Order Management
 
-| Area | Status |
-| --- | --- |
+| Area                                                                 | Status              |
+| -------------------------------------------------------------------- | ------------------- |
 | Cart (add/update/remove, stock + verified-user checks, navbar badge) | ✅ Built end-to-end |
-| Checkout (address selection, shipping estimate, order creation) | ✅ Built end-to-end |
-| Payment proof upload (validated client + server, static-served) | ✅ Built end-to-end |
-| Order list/detail, cancel, confirm receipt | ✅ Built end-to-end |
+| Checkout (address selection, shipping estimate, order creation)      | ✅ Built end-to-end |
+| Payment proof upload (validated client + server, static-served)      | ✅ Built end-to-end |
+| Order list/detail, cancel, confirm receipt                           | ✅ Built end-to-end |
 | Admin order management (confirm payment, ship, cancel), store-scoped | ✅ Built end-to-end |
 
 Verified locally: register → verify → add address → add to cart → checkout

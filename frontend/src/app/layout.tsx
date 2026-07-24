@@ -17,7 +17,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "FreshMart — Belanja Grosir Online",
+  title: "GrocerGo — Belanja Grosir Online",
   description:
     "Online Grocery Web App: belanja kebutuhan harian dari toko cabang terdekat dengan promo dan voucher eksklusif.",
 };

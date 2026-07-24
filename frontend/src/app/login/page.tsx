@@ -6,7 +6,12 @@ import Link from "next/link";
 
 import { ApiError } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
-import { AuthCard, FormField, inputClass, primaryButtonClass } from "@/components/auth/AuthCard";
+import {
+  AuthCard,
+  FormField,
+  inputClass,
+  primaryButtonClass,
+} from "@/components/auth/AuthCard";
 
 export default function LoginPage() {
   return (
@@ -41,7 +46,7 @@ function LoginForm() {
   }
 
   return (
-    <AuthCard title="Masuk" subtitle="Selamat datang kembali di FreshMart">
+    <AuthCard title="Masuk" subtitle="Selamat datang kembali di GrocerGo">
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <FormField label="Email">
           <input
@@ -63,7 +68,10 @@ function LoginForm() {
         </FormField>
 
         <div className="text-right text-sm">
-          <Link href="/reset-password" className="text-brand-dark hover:underline">
+          <Link
+            href="/reset-password"
+            className="text-brand-dark hover:underline"
+          >
             Lupa password?
           </Link>
         </div>
@@ -77,7 +85,10 @@ function LoginForm() {
 
       <p className="mt-4 text-center text-sm text-foreground/60">
         Belum punya akun?{" "}
-        <Link href="/register" className="font-medium text-brand-dark hover:underline">
+        <Link
+          href="/register"
+          className="font-medium text-brand-dark hover:underline"
+        >
           Daftar
         </Link>
       </p>

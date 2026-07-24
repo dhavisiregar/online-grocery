@@ -20,21 +20,31 @@ export function Navbar() {
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
-        <Link href="/" className="flex items-center gap-2 text-lg font-bold text-brand-dark">
+        <Link
+          href="/"
+          className="flex items-center gap-2 text-lg font-bold text-brand-dark"
+        >
           <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand text-white">
             🛒
           </span>
-          FreshMart
+          GrocerGo
         </Link>
 
         <nav className="hidden items-center gap-6 md:flex">
           {NAV_LINKS.map((link) => (
-            <Link key={link.href} href={link.href} className="text-sm font-medium hover:text-brand-dark">
+            <Link
+              key={link.href}
+              href={link.href}
+              className="text-sm font-medium hover:text-brand-dark"
+            >
               {link.label}
             </Link>
           ))}
           {isAdmin && (
-            <Link href="/admin" className="text-sm font-medium hover:text-brand-dark">
+            <Link
+              href="/admin"
+              className="text-sm font-medium hover:text-brand-dark"
+            >
               Admin
             </Link>
           )}
@@ -59,16 +69,29 @@ export function Navbar() {
         <div className="border-t border-border px-4 py-3 md:hidden">
           <nav className="flex flex-col gap-3">
             {NAV_LINKS.map((link) => (
-              <Link key={link.href} href={link.href} className="text-sm font-medium" onClick={() => setOpen(false)}>
+              <Link
+                key={link.href}
+                href={link.href}
+                className="text-sm font-medium"
+                onClick={() => setOpen(false)}
+              >
                 {link.label}
               </Link>
             ))}
             {isAdmin && (
-              <Link href="/admin" className="text-sm font-medium" onClick={() => setOpen(false)}>
+              <Link
+                href="/admin"
+                className="text-sm font-medium"
+                onClick={() => setOpen(false)}
+              >
                 Admin
               </Link>
             )}
-            <Link href="/cart" className="text-sm font-medium" onClick={() => setOpen(false)}>
+            <Link
+              href="/cart"
+              className="text-sm font-medium"
+              onClick={() => setOpen(false)}
+            >
               Keranjang {itemCount > 0 && `(${itemCount})`}
             </Link>
             <div className="pt-2">
@@ -83,7 +106,11 @@ export function Navbar() {
 
 function CartLink({ itemCount }: { itemCount: number }) {
   return (
-    <Link href="/cart" className="relative text-sm font-medium hover:text-brand-dark" aria-label="Cart">
+    <Link
+      href="/cart"
+      className="relative text-sm font-medium hover:text-brand-dark"
+      aria-label="Cart"
+    >
       <span aria-hidden>🛍️ Keranjang</span>
       {itemCount > 0 && (
         <span className="absolute -right-3 -top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-brand px-1 text-xs font-semibold text-white">
@@ -104,7 +131,10 @@ function AuthArea({
   if (!user) {
     return (
       <div className="flex items-center gap-2">
-        <Link href="/login" className="text-sm font-medium hover:text-brand-dark">
+        <Link
+          href="/login"
+          className="text-sm font-medium hover:text-brand-dark"
+        >
           Masuk
         </Link>
         <Link
@@ -119,7 +149,10 @@ function AuthArea({
 
   return (
     <div className="flex items-center gap-3">
-      <Link href="/profile" className="text-sm font-medium hover:text-brand-dark">
+      <Link
+        href="/profile"
+        className="text-sm font-medium hover:text-brand-dark"
+      >
         {user.name.split(" ")[0]}
         {!user.is_verified && (
           <span className="ml-1 rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-800">

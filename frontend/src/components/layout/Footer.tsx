@@ -9,10 +9,11 @@ export function Footer() {
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand text-white">
               🛒
             </span>
-            FreshMart
+            GrocerGo
           </div>
           <p className="mt-3 text-sm text-foreground/70">
-            Belanja kebutuhan harian dari toko terdekat, diantar sampai ke rumah Anda.
+            Belanja kebutuhan harian dari toko terdekat, diantar sampai ke rumah
+            Anda.
           </p>
         </div>
 
@@ -33,9 +34,11 @@ export function Footer() {
           ]}
         />
         <div>
-          <h3 className="text-sm font-semibold text-foreground">Hubungi Kami</h3>
+          <h3 className="text-sm font-semibold text-foreground">
+            Hubungi Kami
+          </h3>
           <ul className="mt-3 space-y-2 text-sm text-foreground/70">
-            <li>support@freshmart.local</li>
+            <li>support@grocergo.local</li>
             <li>+62 21 5550 1234</li>
             <li>Senin - Minggu, 08.00 - 21.00</li>
           </ul>
@@ -43,7 +46,7 @@ export function Footer() {
       </div>
 
       <div className="border-t border-border px-4 py-4 text-center text-xs text-foreground/60">
-        © {new Date().getFullYear()} FreshMart. Online Grocery Web App.
+        © {new Date().getFullYear()} GrocerGo. Online Grocery Web App.
       </div>
     </footer>
   );
