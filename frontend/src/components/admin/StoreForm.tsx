@@ -3,7 +3,9 @@
 import { useState, type FormEvent } from "react";
 
 import { FormField, inputClass, primaryButtonClass } from "@/components/auth/AuthCard";
-import type { Store } from "@/types";
+import { DestinationSearch } from "@/components/shared/DestinationSearch";
+import { api } from "@/lib/api";
+import type { Destination, Store } from "@/types";
 
 export type StoreFormValues = Omit<Store, "id">;
 
@@ -16,6 +18,7 @@ const EMPTY: StoreFormValues = {
   longitude: 0,
   is_main: false,
   max_distance_km: 25,
+  rajaongkir_destination_id: undefined,
 };
 
 export function StoreForm({
@@ -31,9 +34,30 @@ export function StoreForm({
 }) {
   const [values, setValues] = useState<StoreFormValues>(initial ?? EMPTY);
   const [locating, setLocating] = useState(false);
+  const [geocoding, setGeocoding] = useState(false);
 
   function set<K extends keyof StoreFormValues>(key: K, value: StoreFormValues[K]) {
     setValues((v) => ({ ...v, [key]: value }));
+  }
+
+  async function handleDestinationSelect(d: Destination) {
+    setValues((v) => ({
+      ...v,
+      province: d.province_name,
+      city: d.city_name,
+      rajaongkir_destination_id: d.id,
+    }));
+
+    setGeocoding(true);
+    try {
+      const geo = await api<{ latitude: number; longitude: number }>("/api/geocode", { query: { q: d.label } });
+      set("latitude", geo.latitude);
+      set("longitude", geo.longitude);
+    } catch {
+      // Best-effort — "use current location" below still works as a manual override.
+    } finally {
+      setGeocoding(false);
+    }
   }
 
   function useCurrentLocation() {
@@ -59,6 +83,16 @@ export function StoreForm({
       <FormField label="Nama Toko">
         <input required value={values.name} onChange={(e) => set("name", e.target.value)} className={inputClass} />
       </FormField>
+
+      <FormField label="Kecamatan / Kota">
+        <DestinationSearch onSelect={handleDestinationSelect} />
+      </FormField>
+      {values.province && (
+        <p className="rounded-md bg-surface p-3 text-sm text-foreground/70">
+          {values.city}, {values.province}
+        </p>
+      )}
+
       <FormField label="Alamat">
         <textarea
           required
@@ -68,19 +102,7 @@ export function StoreForm({
           className={inputClass}
         />
       </FormField>
-      <div className="grid grid-cols-2 gap-4">
-        <FormField label="Kota">
-          <input required value={values.city} onChange={(e) => set("city", e.target.value)} className={inputClass} />
-        </FormField>
-        <FormField label="Provinsi">
-          <input
-            required
-            value={values.province}
-            onChange={(e) => set("province", e.target.value)}
-            className={inputClass}
-          />
-        </FormField>
-      </div>
+
       <FormField label="Radius Layanan (km)">
         <input
           required
@@ -99,8 +121,11 @@ export function StoreForm({
 
       <div className="flex flex-col gap-2 rounded-md bg-surface p-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-foreground/60">
-          Titik lokasi: {values.latitude ? values.latitude.toFixed(5) : "-"},{" "}
-          {values.longitude ? values.longitude.toFixed(5) : "-"}
+          {geocoding
+            ? "Mencari titik lokasi…"
+            : `Titik lokasi: ${values.latitude ? values.latitude.toFixed(5) : "-"}, ${
+                values.longitude ? values.longitude.toFixed(5) : "-"
+              }`}
         </p>
         <button
           type="button"

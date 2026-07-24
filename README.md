@@ -84,9 +84,10 @@ to the main store.
   verification + password creation happen together via a one-hour token
   (`internal/service/auth_service.go`). JWT is issued on login and carries
   `user_id` + `role`; `middleware.RequireAuth` / `RequireRole` guard routes.
-- **Email**: `internal/service/mailer.go` logs verification/reset emails to
-  the server console when `SMTP_HOST` is unset, so the auth flow is testable
-  without a mail server in local dev.
+- **Email**: `internal/service/mailer.go` sends real mail via SMTP when
+  `SMTP_HOST` is set (verified locally against a Mailtrap sandbox); with it
+  unset, it logs verification/reset emails to the server console instead, so
+  the auth flow stays testable without any mail server configured.
 - **Pagination/filtering/sorting** for list endpoints is server-side only
   (`utils.ParsePagination`), per the spec's standardization requirements.
 - **Order creation**: resolves the nearest store to the *shipping address*
@@ -94,9 +95,19 @@ to the main store.
   transaction, deducts it via `StockJournal` entries, and clears the cart —
   all atomically (`internal/service/order_service.go`). Cancelling restores
   stock the same way, with its own journal entries.
-- **Shipping cost** is a distance-based placeholder (base fee + per-km rate,
-  see `utils.EstimateShippingOptions`) — swap in a real courier API
-  (RajaOngkir etc.) behind the same `AddressHandler.ShippingOptions` call.
+- **Shipping cost** calls the real RajaOngkir/Komerce domestic-cost API
+  (`internal/service/rajaongkir_service.go`) when both the store and address
+  have a `rajaongkir_destination_id` on file (picked via the destination
+  search autocomplete — `/api/destinations/search`, backed by
+  `GET .../destination/domestic-destination`). The chosen district is then
+  geocoded through OpenCage (`internal/service/geocode_service.go`,
+  `/api/geocode`) to auto-fill lat/lng, so the address form no longer needs
+  "use current location" as its only source of coordinates. Without a
+  destination id on either side (or if the API call fails), it falls back to
+  a distance-based placeholder (`internal/service/shipping_service.go`) so
+  checkout never hard-fails. The order never trusts a client-supplied
+  shipping cost — only the courier+service selection, matched server-side
+  against a freshly recomputed rate list (`OrderService.selectShippingOption`).
 - **Order deadlines are lazy, not cron-based**: the 1-hour payment window
   and 7-day auto-confirm window are enforced when an order is *read*
   (`OrderService.applyLazyTransitions`), not by a background scheduler.
@@ -119,7 +130,7 @@ message instead of failing silently.
 | Register / verify+set-password / login / reset password | ✅ Built end-to-end |
 | Profile view + update (name/phone) | ✅ Built (photo upload validation still open) |
 | User addresses (CRUD, primary) | ✅ Built end-to-end, incl. "use current location" |
-| Shipping cost calculation | ✅ Distance-based placeholder — swap for RajaOngkir/OpenCage |
+| Shipping cost calculation | ✅ Real RajaOngkir rates + OpenCage geocoding (distance fallback if unset) |
 | Store management (super admin CRUD + assign store admin) | ✅ Built end-to-end |
 
 ### Feature 2 — Admin Accounts, Products, Inventory, Discounts, Reports
@@ -150,6 +161,10 @@ receipt, with correct stock deduction/restoration at every step. Also
 verified: super admin creates a store + category + product (with image) +
 store admin account, assigns the store admin to a store, and that store
 admin's inventory/product access is correctly scoped and permission-gated.
+Also verified against the live RajaOngkir and OpenCage APIs: destination
+search, geocoding, real courier rate quotes, weight-aware cost recalculation
+on order creation, and the fallback-to-cheapest-option behavior for an
+unmatched courier/service.
 
 Every stubbed handler lives in `backend/internal/handlers/*.go` with a
 one-line comment on what it needs (e.g. `InventoryHandler.Adjust`,

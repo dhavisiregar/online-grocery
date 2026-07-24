@@ -69,20 +69,29 @@ func buildRepositories(db *gorm.DB) *repositories {
 }
 
 type services struct {
-	auth   *service.AuthService
-	stores *service.StoreService
-	cart   *service.CartService
-	order  *service.OrderService
+	auth       *service.AuthService
+	stores     *service.StoreService
+	cart       *service.CartService
+	order      *service.OrderService
+	rajaOngkir *service.RajaOngkirService
+	geocode    *service.GeocodeService
+	shipping   *service.ShippingService
 }
 
 func buildServices(db *gorm.DB, r *repositories, cfg *config.Config) *services {
 	mailer := service.NewMailer(cfg)
 	storeSvc := service.NewStoreService(r.stores)
+	rajaOngkirSvc := service.NewRajaOngkirService(cfg)
+	geocodeSvc := service.NewGeocodeService(cfg)
+	shippingSvc := service.NewShippingService(rajaOngkirSvc)
 	return &services{
-		auth:   service.NewAuthService(r.users, mailer, cfg),
-		stores: storeSvc,
-		cart:   service.NewCartService(r.carts, r.products, r.users),
-		order:  service.NewOrderService(db, r.orders, r.carts, r.addresses, storeSvc),
+		auth:       service.NewAuthService(r.users, mailer, cfg),
+		stores:     storeSvc,
+		cart:       service.NewCartService(r.carts, r.products, r.users),
+		order:      service.NewOrderService(db, r.orders, r.carts, r.addresses, storeSvc, shippingSvc),
+		rajaOngkir: rajaOngkirSvc,
+		geocode:    geocodeSvc,
+		shipping:   shippingSvc,
 	}
 }
 
@@ -90,7 +99,7 @@ func buildHandlers(r *repositories, s *services, cfg *config.Config) *routes.Han
 	return &routes.Handlers{
 		Auth:      handlers.NewAuthHandler(s.auth, r.users),
 		User:      handlers.NewUserHandler(r.users, r.stores),
-		Address:   handlers.NewAddressHandler(r.addresses, s.stores),
+		Address:   handlers.NewAddressHandler(r.addresses, s.stores, s.shipping, r.carts),
 		Store:     handlers.NewStoreHandler(s.stores, r.stores),
 		Category:  handlers.NewCategoryHandler(r.categories),
 		Product:   handlers.NewProductHandler(r.products, s.stores, cfg),
@@ -99,5 +108,6 @@ func buildHandlers(r *repositories, s *services, cfg *config.Config) *routes.Han
 		Cart:      handlers.NewCartHandler(s.cart),
 		Order:     handlers.NewOrderHandler(s.order, r.stores, cfg),
 		Report:    handlers.NewReportHandler(),
+		Location:  handlers.NewLocationHandler(s.rajaOngkir, s.geocode),
 	}
 }

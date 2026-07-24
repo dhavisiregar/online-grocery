@@ -8,14 +8,7 @@ import { api, ApiError } from "@/lib/api";
 import { RequireAuth } from "@/components/auth/RequireAuth";
 import { primaryButtonClass } from "@/components/auth/AuthCard";
 import { formatIDR } from "@/lib/format";
-import type { CartItem, Order, UserAddress } from "@/types";
-
-interface ShippingOption {
-  service: string;
-  label: string;
-  cost: number;
-  eta_days: number;
-}
+import type { CartItem, Order, ShippingOption, UserAddress } from "@/types";
 
 export default function CheckoutPage() {
   return (
@@ -30,33 +23,43 @@ function CheckoutContent() {
   const [items, setItems] = useState<CartItem[] | null>(null);
   const [addresses, setAddresses] = useState<UserAddress[] | null>(null);
   const [addressId, setAddressId] = useState<number | null>(null);
-  const [shipping, setShipping] = useState<ShippingOption[] | null>(null);
+  const [shippingOptions, setShippingOptions] = useState<ShippingOption[] | null>(null);
+  const [selected, setSelected] = useState<ShippingOption | null>(null);
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
     api<CartItem[]>("/api/cart").then(setItems).catch(() => setItems([]));
-    api<UserAddress[]>("/api/addresses").then((res) => {
-      setAddresses(res);
-      const primary = res.find((a) => a.is_primary) ?? res[0];
-      if (primary) setAddressId(primary.id);
-    }).catch(() => setAddresses([]));
+    api<UserAddress[]>("/api/addresses")
+      .then((res) => {
+        setAddresses(res);
+        const primary = res.find((a) => a.is_primary) ?? res[0];
+        if (primary) setAddressId(primary.id);
+      })
+      .catch(() => setAddresses([]));
   }, []);
 
   useEffect(() => {
     queueMicrotask(() => {
       if (!addressId) {
-        setShipping(null);
+        setShippingOptions(null);
+        setSelected(null);
         return;
       }
       api<ShippingOption[]>(`/api/addresses/${addressId}/shipping-options`)
-        .then(setShipping)
-        .catch(() => setShipping(null));
+        .then((options) => {
+          setShippingOptions(options);
+          setSelected(options[0] ?? null);
+        })
+        .catch(() => {
+          setShippingOptions(null);
+          setSelected(null);
+        });
     });
   }, [addressId]);
 
   const subtotal = items?.reduce((sum, i) => sum + (i.product?.price ?? 0) * i.quantity, 0) ?? 0;
-  const shippingCost = shipping?.[0]?.cost ?? 0;
+  const shippingCost = selected?.cost ?? 0;
 
   async function handleSubmit() {
     if (!addressId) return;
@@ -65,7 +68,12 @@ function CheckoutContent() {
     try {
       const order = await api<Order>("/api/orders", {
         method: "POST",
-        body: { address_id: addressId, payment_method: "manual_transfer" },
+        body: {
+          address_id: addressId,
+          payment_method: "manual_transfer",
+          shipping_courier: selected?.courier,
+          shipping_service: selected?.service,
+        },
       });
       router.push(`/orders/${order.id}`);
     } catch (err) {
@@ -131,6 +139,42 @@ function CheckoutContent() {
           )}
         </Section>
 
+        <Section title="Metode Pengiriman">
+          {!shippingOptions && <p className="text-sm text-foreground/60">Pilih alamat untuk melihat opsi pengiriman.</p>}
+          {shippingOptions && shippingOptions.length > 0 && (
+            <div className="flex flex-col gap-2">
+              {shippingOptions.map((opt) => (
+                <label
+                  key={`${opt.courier}-${opt.service}`}
+                  className={`flex cursor-pointer items-center justify-between gap-3 rounded-md border p-3 text-sm ${
+                    selected?.courier === opt.courier && selected?.service === opt.service
+                      ? "border-brand bg-brand-light/40"
+                      : "border-border"
+                  }`}
+                >
+                  <span className="flex items-start gap-3">
+                    <input
+                      type="radio"
+                      name="shipping"
+                      checked={selected?.courier === opt.courier && selected?.service === opt.service}
+                      onChange={() => setSelected(opt)}
+                      className="mt-1"
+                    />
+                    <span>
+                      <span className="font-medium">
+                        {opt.courier_name} — {opt.description}
+                      </span>
+                      <br />
+                      <span className="text-foreground/60">Estimasi {opt.etd}</span>
+                    </span>
+                  </span>
+                  <span className="whitespace-nowrap font-medium">{formatIDR(opt.cost)}</span>
+                </label>
+              ))}
+            </div>
+          )}
+        </Section>
+
         <Section title="Metode Pembayaran">
           <p className="text-sm text-foreground/70">Transfer Manual — unggah bukti bayar setelah pesanan dibuat.</p>
         </Section>
@@ -142,7 +186,7 @@ function CheckoutContent() {
           </div>
           <div className="flex justify-between text-sm">
             <span className="text-foreground/60">Ongkos Kirim</span>
-            <span>{shipping ? formatIDR(shippingCost) : "-"}</span>
+            <span>{selected ? formatIDR(shippingCost) : "-"}</span>
           </div>
           <div className="mt-2 flex justify-between border-t border-border pt-2 text-sm font-semibold">
             <span>Total</span>
@@ -157,7 +201,7 @@ function CheckoutContent() {
         <button
           type="button"
           onClick={handleSubmit}
-          disabled={status === "loading" || !addressId}
+          disabled={status === "loading" || !addressId || !selected}
           className={primaryButtonClass}
         >
           {status === "loading" ? "Memproses…" : "Buat Pesanan"}

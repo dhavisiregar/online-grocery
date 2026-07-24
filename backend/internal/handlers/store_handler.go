@@ -76,14 +76,15 @@ func parseLatLng(c *gin.Context) (lat, lng float64, ok bool) {
 }
 
 type storeRequest struct {
-	Name          string  `json:"name" binding:"required,max=150"`
-	Address       string  `json:"address" binding:"required"`
-	City          string  `json:"city" binding:"required"`
-	Province      string  `json:"province" binding:"required"`
-	Latitude      float64 `json:"latitude" binding:"required"`
-	Longitude     float64 `json:"longitude" binding:"required"`
-	IsMain        bool    `json:"is_main"`
-	MaxDistanceKM float64 `json:"max_distance_km" binding:"required,gt=0"`
+	Name                    string  `json:"name" binding:"required,max=150"`
+	Address                 string  `json:"address" binding:"required"`
+	City                    string  `json:"city" binding:"required"`
+	Province                string  `json:"province" binding:"required"`
+	Latitude                float64 `json:"latitude" binding:"required"`
+	Longitude               float64 `json:"longitude" binding:"required"`
+	IsMain                  bool    `json:"is_main"`
+	MaxDistanceKM           float64 `json:"max_distance_km" binding:"required,gt=0"`
+	RajaOngkirDestinationID *int    `json:"rajaongkir_destination_id"`
 }
 
 func (h *StoreHandler) Create(c *gin.Context) {
@@ -125,6 +126,7 @@ func (h *StoreHandler) Update(c *gin.Context) {
 
 	updated := storeFromRequest(req)
 	updated.ID = existing.ID
+	updated.CreatedAt = existing.CreatedAt
 	if err := h.storeRp.Update(&updated); err != nil {
 		utils.Error(c, http.StatusInternalServerError, "failed to update store")
 		return
@@ -174,13 +176,14 @@ func (h *StoreHandler) AssignAdmin(c *gin.Context) {
 
 func storeFromRequest(req storeRequest) models.Store {
 	return models.Store{
-		Name:          req.Name,
-		Address:       req.Address,
-		City:          req.City,
-		Province:      req.Province,
-		Latitude:      req.Latitude,
-		Longitude:     req.Longitude,
-		IsMain:        req.IsMain,
-		MaxDistanceKM: req.MaxDistanceKM,
+		Name:                    req.Name,
+		Address:                 req.Address,
+		City:                    req.City,
+		Province:                req.Province,
+		Latitude:                req.Latitude,
+		Longitude:               req.Longitude,
+		IsMain:                  req.IsMain,
+		MaxDistanceKM:           req.MaxDistanceKM,
+		RajaOngkirDestinationID: req.RajaOngkirDestinationID,
 	}
 }

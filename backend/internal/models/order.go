@@ -23,6 +23,8 @@ type Order struct {
 	Subtotal          float64     `gorm:"not null" json:"subtotal"`
 	DiscountAmount    float64     `gorm:"not null;default:0" json:"discount_amount"`
 	ShippingCost      float64     `gorm:"not null;default:0" json:"shipping_cost"`
+	ShippingCourier   string      `gorm:"size:30" json:"shipping_courier"`
+	ShippingService   string      `gorm:"size:30" json:"shipping_service"`
 	ShippingVoucherID *uint       `json:"shipping_voucher_id,omitempty"`
 	VoucherID         *uint       `json:"voucher_id,omitempty"`
 	Total             float64     `gorm:"not null" json:"total"`

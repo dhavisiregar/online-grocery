@@ -24,6 +24,7 @@ export interface Store {
   longitude: number;
   is_main: boolean;
   max_distance_km: number;
+  rajaongkir_destination_id?: number;
 }
 
 export interface Category {
@@ -73,7 +74,27 @@ export interface UserAddress {
   address_line: string;
   latitude: number;
   longitude: number;
+  rajaongkir_destination_id?: number;
   is_primary: boolean;
+}
+
+export interface Destination {
+  id: number;
+  label: string;
+  province_name: string;
+  city_name: string;
+  district_name: string;
+  subdistrict_name: string;
+  zip_code: string;
+}
+
+export interface ShippingOption {
+  courier: string;
+  courier_name: string;
+  service: string;
+  description: string;
+  cost: number;
+  etd: string;
 }
 
 export type OrderStatus =
@@ -100,6 +121,8 @@ export interface Order {
   subtotal: number;
   discount_amount: number;
   shipping_cost: number;
+  shipping_courier?: string;
+  shipping_service?: string;
   total: number;
   payment_method: string;
   payment_proof_url?: string;

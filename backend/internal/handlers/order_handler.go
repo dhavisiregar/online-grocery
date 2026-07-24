@@ -29,8 +29,10 @@ func NewOrderHandler(orders *service.OrderService, stores *repository.StoreRepos
 }
 
 type createOrderRequest struct {
-	AddressID     uint   `json:"address_id" binding:"required"`
-	PaymentMethod string `json:"payment_method" binding:"required"`
+	AddressID       uint   `json:"address_id" binding:"required"`
+	PaymentMethod   string `json:"payment_method" binding:"required"`
+	ShippingCourier string `json:"shipping_courier"`
+	ShippingService string `json:"shipping_service"`
 }
 
 func (h *OrderHandler) Create(c *gin.Context) {
@@ -40,7 +42,7 @@ func (h *OrderHandler) Create(c *gin.Context) {
 		return
 	}
 
-	order, err := h.orders.Create(currentUserID(c), req.AddressID, req.PaymentMethod)
+	order, err := h.orders.Create(currentUserID(c), req.AddressID, req.PaymentMethod, req.ShippingCourier, req.ShippingService)
 	if err != nil {
 		utils.Error(c, orderErrorStatus(err), err.Error())
 		return

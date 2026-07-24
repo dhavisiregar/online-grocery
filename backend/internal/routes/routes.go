@@ -25,6 +25,7 @@ type Handlers struct {
 	Cart      *handlers.CartHandler
 	Order     *handlers.OrderHandler
 	Report    *handlers.ReportHandler
+	Location  *handlers.LocationHandler
 }
 
 func Register(r *gin.Engine, h *Handlers, cfg *config.Config) {
@@ -61,6 +62,9 @@ func registerUserRoutes(api *gin.RouterGroup, h *Handlers, cfg *config.Config) {
 	g.GET("/auth/me", h.Auth.Me)
 	g.PUT("/users/me", h.User.UpdateProfile)
 	g.PUT("/users/me/email", h.User.UpdateEmail)
+
+	g.GET("/destinations/search", h.Location.SearchDestination)
+	g.GET("/geocode", h.Location.Geocode)
 
 	addr := g.Group("/addresses")
 	addr.GET("", h.Address.List)

@@ -29,6 +29,7 @@ type OrderService struct {
 	carts     *repository.CartRepository
 	addresses *repository.AddressRepository
 	storeSvc  *StoreService
+	shipping  *ShippingService
 }
 
 func NewOrderService(
@@ -37,15 +38,19 @@ func NewOrderService(
 	carts *repository.CartRepository,
 	addresses *repository.AddressRepository,
 	storeSvc *StoreService,
+	shipping *ShippingService,
 ) *OrderService {
-	return &OrderService{db: db, orders: orders, carts: carts, addresses: addresses, storeSvc: storeSvc}
+	return &OrderService{db: db, orders: orders, carts: carts, addresses: addresses, storeSvc: storeSvc, shipping: shipping}
 }
 
 // Create validates the cart against the nearest warehouse to the shipping
 // address, deducts stock via a StockJournal for each line, and writes the
 // order atomically. See models.StockJournal for why stock is never edited
-// directly.
-func (s *OrderService) Create(userID, addressID uint, paymentMethod string) (*models.Order, error) {
+// directly. shippingCourier/shippingService select which of the estimated
+// options to charge — recomputed server-side rather than trusting a
+// client-supplied cost, falling back to the cheapest option if omitted or
+// no longer offered.
+func (s *OrderService) Create(userID, addressID uint, paymentMethod, shippingCourier, shippingService string) (*models.Order, error) {
 	if paymentMethod != "manual_transfer" {
 		return nil, ErrUnsupportedPayment
 	}
@@ -72,17 +77,33 @@ func (s *OrderService) Create(userID, addressID uint, paymentMethod string) (*mo
 		return nil, err
 	}
 
-	distanceKM := utils.HaversineKM(addr.Latitude, addr.Longitude, store.Latitude, store.Longitude)
-	shippingCost := utils.EstimateShippingOptions(distanceKM)[0].Cost
+	weight := 0
+	for _, item := range items {
+		weight += item.Product.WeightGrams * item.Quantity
+	}
+	options := s.shipping.Estimate(store, addr, weight)
+	chosen := selectShippingOption(options, shippingCourier, shippingService)
 
-	order, err := s.commitOrder(userID, addressID, store.ID, paymentMethod, shippingCost, items)
+	order, err := s.commitOrder(userID, addressID, store.ID, paymentMethod, chosen, items)
 	if err != nil {
 		return nil, err
 	}
 	return order, nil
 }
 
-func (s *OrderService) commitOrder(userID, addressID, storeID uint, paymentMethod string, shippingCost float64, items []models.CartItem) (*models.Order, error) {
+// selectShippingOption never trusts a client-supplied cost — only the
+// courier+service selection — and falls back to the cheapest (options are
+// pre-sorted ascending by ShippingService.Estimate) if unmatched.
+func selectShippingOption(options []ShippingOption, courier, service string) ShippingOption {
+	for _, o := range options {
+		if o.Courier == courier && o.Service == service {
+			return o
+		}
+	}
+	return options[0]
+}
+
+func (s *OrderService) commitOrder(userID, addressID, storeID uint, paymentMethod string, shipping ShippingOption, items []models.CartItem) (*models.Order, error) {
 	var order *models.Order
 
 	err := s.db.Transaction(func(tx *gorm.DB) error {
@@ -120,8 +141,10 @@ func (s *OrderService) commitOrder(userID, addressID, storeID uint, paymentMetho
 			AddressID:       addressID,
 			Status:          models.StatusWaitingPayment,
 			Subtotal:        subtotal,
-			ShippingCost:    shippingCost,
-			Total:           subtotal + shippingCost,
+			ShippingCost:    shipping.Cost,
+			ShippingCourier: shipping.Courier,
+			ShippingService: shipping.Service,
+			Total:           subtotal + shipping.Cost,
 			PaymentMethod:   paymentMethod,
 			PaymentDeadline: &deadline,
 		}

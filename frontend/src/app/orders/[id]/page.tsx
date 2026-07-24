@@ -65,7 +65,12 @@ function OrderDetailContent() {
           <span>-{formatIDR(order.discount_amount)}</span>
         </div>
         <div className="flex justify-between text-sm">
-          <span className="text-foreground/60">Ongkos Kirim</span>
+          <span className="text-foreground/60">
+            Ongkos Kirim
+            {order.shipping_courier && order.shipping_courier !== "internal" && (
+              <> ({order.shipping_courier.toUpperCase()} {order.shipping_service})</>
+            )}
+          </span>
           <span>{formatIDR(order.shipping_cost)}</span>
         </div>
         <div className="mt-2 flex justify-between border-t border-border pt-2 text-sm font-semibold">

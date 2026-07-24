@@ -3,7 +3,9 @@
 import { useState, type FormEvent } from "react";
 
 import { FormField, inputClass, primaryButtonClass } from "@/components/auth/AuthCard";
-import type { UserAddress } from "@/types";
+import { DestinationSearch } from "@/components/shared/DestinationSearch";
+import { api } from "@/lib/api";
+import type { Destination, UserAddress } from "@/types";
 
 export type AddressFormValues = Omit<UserAddress, "id" | "is_primary">;
 
@@ -18,6 +20,7 @@ const EMPTY: AddressFormValues = {
   address_line: "",
   latitude: 0,
   longitude: 0,
+  rajaongkir_destination_id: undefined,
 };
 
 export function AddressForm({
@@ -35,9 +38,33 @@ export function AddressForm({
 }) {
   const [values, setValues] = useState<AddressFormValues>(initial ?? EMPTY);
   const [locating, setLocating] = useState(false);
+  const [geocoding, setGeocoding] = useState(false);
 
   function set<K extends keyof AddressFormValues>(key: K, value: AddressFormValues[K]) {
     setValues((v) => ({ ...v, [key]: value }));
+  }
+
+  async function handleDestinationSelect(d: Destination) {
+    setValues((v) => ({
+      ...v,
+      province: d.province_name,
+      city: d.city_name,
+      district: d.district_name,
+      postal_code: d.zip_code,
+      rajaongkir_destination_id: d.id,
+    }));
+
+    setGeocoding(true);
+    try {
+      const geo = await api<{ latitude: number; longitude: number }>("/api/geocode", { query: { q: d.label } });
+      set("latitude", geo.latitude);
+      set("longitude", geo.longitude);
+    } catch {
+      // Geocoding is best-effort — the "use current location" button below
+      // still lets the shopper set coordinates manually if this fails.
+    } finally {
+      setGeocoding(false);
+    }
   }
 
   function useCurrentLocation() {
@@ -75,26 +102,19 @@ export function AddressForm({
         <FormField label="Nomor Telepon">
           <input required value={values.phone} onChange={(e) => set("phone", e.target.value)} className={inputClass} />
         </FormField>
-        <FormField label="Kode Pos">
-          <input
-            required
-            value={values.postal_code}
-            onChange={(e) => set("postal_code", e.target.value)}
-            className={inputClass}
-          />
-        </FormField>
-        <FormField label="Provinsi">
-          <input required value={values.province} onChange={(e) => set("province", e.target.value)} className={inputClass} />
-        </FormField>
-        <FormField label="Kota/Kabupaten">
-          <input required value={values.city} onChange={(e) => set("city", e.target.value)} className={inputClass} />
-        </FormField>
-        <FormField label="Kecamatan">
-          <input required value={values.district} onChange={(e) => set("district", e.target.value)} className={inputClass} />
-        </FormField>
       </div>
 
-      <FormField label="Alamat Lengkap">
+      <FormField label="Kecamatan / Kota">
+        <DestinationSearch onSelect={handleDestinationSelect} />
+      </FormField>
+
+      {values.province && (
+        <p className="rounded-md bg-surface p-3 text-sm text-foreground/70">
+          {values.district}, {values.city}, {values.province} {values.postal_code}
+        </p>
+      )}
+
+      <FormField label="Alamat Lengkap (jalan, nomor rumah, patokan)">
         <textarea
           required
           rows={3}
@@ -106,8 +126,11 @@ export function AddressForm({
 
       <div className="flex flex-col gap-2 rounded-md bg-surface p-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-foreground/60">
-          Titik lokasi: {values.latitude ? values.latitude.toFixed(5) : "-"},{" "}
-          {values.longitude ? values.longitude.toFixed(5) : "-"}
+          {geocoding
+            ? "Mencari titik lokasi…"
+            : `Titik lokasi: ${values.latitude ? values.latitude.toFixed(5) : "-"}, ${
+                values.longitude ? values.longitude.toFixed(5) : "-"
+              }`}
         </p>
         <button
           type="button"
@@ -131,7 +154,8 @@ export function AddressForm({
       </div>
       {!values.latitude && (
         <p className="text-xs text-foreground/50">
-          Klik &quot;Gunakan Lokasi Saat Ini&quot; untuk mengisi titik koordinat — dibutuhkan untuk menghitung ongkos kirim.
+          Pilih kecamatan/kota di atas (titik lokasi terisi otomatis), atau klik &quot;Gunakan Lokasi Saat
+          Ini&quot;.
         </p>
       )}
     </form>

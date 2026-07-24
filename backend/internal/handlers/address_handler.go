@@ -16,10 +16,17 @@ import (
 type AddressHandler struct {
 	addresses *repository.AddressRepository
 	stores    *service.StoreService
+	shipping  *service.ShippingService
+	carts     *repository.CartRepository
 }
 
-func NewAddressHandler(addresses *repository.AddressRepository, stores *service.StoreService) *AddressHandler {
-	return &AddressHandler{addresses: addresses, stores: stores}
+func NewAddressHandler(
+	addresses *repository.AddressRepository,
+	stores *service.StoreService,
+	shipping *service.ShippingService,
+	carts *repository.CartRepository,
+) *AddressHandler {
+	return &AddressHandler{addresses: addresses, stores: stores, shipping: shipping, carts: carts}
 }
 
 func currentUserID(c *gin.Context) uint {
@@ -38,16 +45,17 @@ func (h *AddressHandler) List(c *gin.Context) {
 }
 
 type addressRequest struct {
-	Label         string  `json:"label" binding:"required,max=50"`
-	RecipientName string  `json:"recipient_name" binding:"required,max=150"`
-	Phone         string  `json:"phone" binding:"required,max=30"`
-	Province      string  `json:"province" binding:"required"`
-	City          string  `json:"city" binding:"required"`
-	District      string  `json:"district" binding:"required"`
-	PostalCode    string  `json:"postal_code" binding:"required,max=10"`
-	AddressLine   string  `json:"address_line" binding:"required"`
-	Latitude      float64 `json:"latitude" binding:"required"`
-	Longitude     float64 `json:"longitude" binding:"required"`
+	Label                   string  `json:"label" binding:"required,max=50"`
+	RecipientName           string  `json:"recipient_name" binding:"required,max=150"`
+	Phone                   string  `json:"phone" binding:"required,max=30"`
+	Province                string  `json:"province" binding:"required"`
+	City                    string  `json:"city" binding:"required"`
+	District                string  `json:"district" binding:"required"`
+	PostalCode              string  `json:"postal_code" binding:"required,max=10"`
+	AddressLine             string  `json:"address_line" binding:"required"`
+	Latitude                float64 `json:"latitude" binding:"required"`
+	Longitude               float64 `json:"longitude" binding:"required"`
+	RajaOngkirDestinationID *int    `json:"rajaongkir_destination_id"`
 }
 
 func (h *AddressHandler) Create(c *gin.Context) {
@@ -89,6 +97,7 @@ func (h *AddressHandler) Update(c *gin.Context) {
 	updated.ID = addr.ID
 	updated.UserID = addr.UserID
 	updated.IsPrimary = addr.IsPrimary
+	updated.CreatedAt = addr.CreatedAt
 	if err := h.addresses.Update(&updated); err != nil {
 		utils.Error(c, http.StatusInternalServerError, "failed to update address")
 		return
@@ -121,8 +130,8 @@ func (h *AddressHandler) SetPrimary(c *gin.Context) {
 }
 
 // ShippingOptions estimates delivery cost from the nearest store to this
-// address. This is a distance-based placeholder — swap in RajaOngkir (or
-// another courier API) here, ideally caching results locally per the spec.
+// address, using the shopper's current cart weight (falls back to 1kg if
+// the cart is empty, e.g. when previewing from the addresses page).
 func (h *AddressHandler) ShippingOptions(c *gin.Context) {
 	addr, ok := h.ownedAddress(c)
 	if !ok {
@@ -133,8 +142,28 @@ func (h *AddressHandler) ShippingOptions(c *gin.Context) {
 		utils.Error(c, http.StatusUnprocessableEntity, "tidak ada toko yang dapat melayani alamat ini")
 		return
 	}
-	distanceKM := utils.HaversineKM(addr.Latitude, addr.Longitude, store.Latitude, store.Longitude)
-	utils.Success(c, http.StatusOK, "ok", utils.EstimateShippingOptions(distanceKM))
+
+	weight := h.cartWeightGrams(currentUserID(c))
+	utils.Success(c, http.StatusOK, "ok", h.shipping.Estimate(store, addr, weight))
+}
+
+func (h *AddressHandler) cartWeightGrams(userID uint) int {
+	cart, err := h.carts.GetOrCreateCart(userID)
+	if err != nil {
+		return 1000
+	}
+	items, err := h.carts.ListItems(cart.ID)
+	if err != nil || len(items) == 0 {
+		return 1000
+	}
+	total := 0
+	for _, item := range items {
+		total += item.Product.WeightGrams * item.Quantity
+	}
+	if total < 1 {
+		return 1000
+	}
+	return total
 }
 
 func (h *AddressHandler) ownedAddress(c *gin.Context) (*models.UserAddress, bool) {
@@ -153,15 +182,16 @@ func (h *AddressHandler) ownedAddress(c *gin.Context) (*models.UserAddress, bool
 
 func addressFromRequest(req addressRequest) models.UserAddress {
 	return models.UserAddress{
-		Label:         req.Label,
-		RecipientName: req.RecipientName,
-		Phone:         req.Phone,
-		Province:      req.Province,
-		City:          req.City,
-		District:      req.District,
-		PostalCode:    req.PostalCode,
-		AddressLine:   req.AddressLine,
-		Latitude:      req.Latitude,
-		Longitude:     req.Longitude,
+		Label:                   req.Label,
+		RecipientName:           req.RecipientName,
+		Phone:                   req.Phone,
+		Province:                req.Province,
+		City:                    req.City,
+		District:                req.District,
+		PostalCode:              req.PostalCode,
+		AddressLine:             req.AddressLine,
+		Latitude:                req.Latitude,
+		Longitude:               req.Longitude,
+		RajaOngkirDestinationID: req.RajaOngkirDestinationID,
 	}
 }
