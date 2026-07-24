@@ -89,6 +89,18 @@ to the main store.
   without a mail server in local dev.
 - **Pagination/filtering/sorting** for list endpoints is server-side only
   (`utils.ParsePagination`), per the spec's standardization requirements.
+- **Order creation**: resolves the nearest store to the *shipping address*
+  (not the cart's browsing store), checks stock at that store inside a DB
+  transaction, deducts it via `StockJournal` entries, and clears the cart —
+  all atomically (`internal/service/order_service.go`). Cancelling restores
+  stock the same way, with its own journal entries.
+- **Shipping cost** is a distance-based placeholder (base fee + per-km rate,
+  see `utils.EstimateShippingOptions`) — swap in a real courier API
+  (RajaOngkir etc.) behind the same `AddressHandler.ShippingOptions` call.
+- **Order deadlines are lazy, not cron-based**: the 1-hour payment window
+  and 7-day auto-confirm window are enforced when an order is *read*
+  (`OrderService.applyLazyTransitions`), not by a background scheduler.
+  Good enough for local dev; swap in a real job runner before production.
 
 ## Feature status
 
@@ -106,8 +118,8 @@ message instead of failing silently.
 | Geolocation prompt + nearest-store resolution | ✅ Built (backend + frontend) |
 | Register / verify+set-password / login / reset password | ✅ Built end-to-end |
 | Profile view + update (name/phone) | ✅ Built (photo upload validation still open) |
-| User addresses (CRUD, primary) | ⏳ Routes + UI shell only — `AddressHandler` stubbed |
-| Shipping cost calculation (RajaOngkir/OpenCage) | ⏳ Not started |
+| User addresses (CRUD, primary) | ✅ Built end-to-end, incl. "use current location" |
+| Shipping cost calculation | ✅ Distance-based placeholder — swap for RajaOngkir/OpenCage |
 | Store management (super admin CRUD) | ⏳ List works; create/update/delete stubbed |
 
 ### Feature 2 — Admin Accounts, Products, Inventory, Discounts, Reports
@@ -126,11 +138,15 @@ message instead of failing silently.
 
 | Area | Status |
 | --- | --- |
-| Cart UI (add/update/remove, navbar badge) | ✅ UI wired to API; `CartHandler` stubbed |
-| Checkout shell (address, payment method, order summary) | ✅ UI shell; `OrderHandler.Create` stubbed |
-| Payment proof upload (client-side type/size validation) | ✅ UI built; backend stubbed |
-| Order list/detail, cancel, confirm receipt | ✅ UI built; backend stubbed |
-| Admin order management (confirm payment, ship, cancel) | ✅ UI shell; backend stubbed |
+| Cart (add/update/remove, stock + verified-user checks, navbar badge) | ✅ Built end-to-end |
+| Checkout (address selection, shipping estimate, order creation) | ✅ Built end-to-end |
+| Payment proof upload (validated client + server, static-served) | ✅ Built end-to-end |
+| Order list/detail, cancel, confirm receipt | ✅ Built end-to-end |
+| Admin order management (confirm payment, ship, cancel), store-scoped | ✅ Built end-to-end |
+
+Verified locally: register → verify → add address → add to cart → checkout
+→ upload payment proof → admin approves → admin ships → customer confirms
+receipt, with correct stock deduction/restoration at every step.
 
 Every stubbed handler lives in `backend/internal/handlers/*.go` with a
 one-line comment on what it needs (e.g. `InventoryHandler.Adjust`,

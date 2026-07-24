@@ -1,50 +1,273 @@
 package handlers
 
 import (
+	"errors"
+	"net/http"
+	"strconv"
+	"time"
+
 	"github.com/gin-gonic/gin"
 
+	"online-grocery/backend/internal/config"
+	"online-grocery/backend/internal/middleware"
+	"online-grocery/backend/internal/models"
+	"online-grocery/backend/internal/repository"
+	"online-grocery/backend/internal/service"
 	"online-grocery/backend/internal/utils"
 )
 
-type OrderHandler struct{}
+var allowedProofExt = []string{".jpg", ".jpeg", ".png"}
 
-func NewOrderHandler() *OrderHandler { return &OrderHandler{} }
-
-// Create: resolve nearest warehouse to the shipping address (haversine,
-// see utils.HaversineKM), verify stock across all warehouses, snapshot
-// order items, and start the 1-hour payment-proof deadline.
-func (h *OrderHandler) Create(c *gin.Context) { utils.NotImplemented(c, "creating an order") }
-func (h *OrderHandler) List(c *gin.Context)   { utils.NotImplemented(c, "listing orders") }
-func (h *OrderHandler) Detail(c *gin.Context) { utils.NotImplemented(c, "viewing order detail") }
-
-// UploadPaymentProof: .jpg/.jpeg/.png only, <=1MB, only before the 1-hour
-// deadline; moves status waiting_payment -> waiting_confirmation.
-func (h *OrderHandler) UploadPaymentProof(c *gin.Context) {
-	utils.NotImplemented(c, "uploading payment proof")
+type OrderHandler struct {
+	orders *service.OrderService
+	stores *repository.StoreRepository
+	cfg    *config.Config
 }
 
-// Cancel: user may cancel only before uploading payment proof.
-func (h *OrderHandler) Cancel(c *gin.Context) { utils.NotImplemented(c, "cancelling an order") }
+func NewOrderHandler(orders *service.OrderService, stores *repository.StoreRepository, cfg *config.Config) *OrderHandler {
+	return &OrderHandler{orders: orders, stores: stores, cfg: cfg}
+}
 
-// Confirm: user confirms receipt; also auto-confirmed by a scheduled job
-// 2x24h after shipped_at if the user takes no action.
-func (h *OrderHandler) Confirm(c *gin.Context) { utils.NotImplemented(c, "confirming an order") }
+type createOrderRequest struct {
+	AddressID     uint   `json:"address_id" binding:"required"`
+	PaymentMethod string `json:"payment_method" binding:"required"`
+}
+
+func (h *OrderHandler) Create(c *gin.Context) {
+	var req createOrderRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	order, err := h.orders.Create(currentUserID(c), req.AddressID, req.PaymentMethod)
+	if err != nil {
+		utils.Error(c, orderErrorStatus(err), err.Error())
+		return
+	}
+	utils.Success(c, http.StatusCreated, "order created", order)
+}
+
+func (h *OrderHandler) List(c *gin.Context) {
+	p := utils.ParsePagination(c)
+	orders, total, err := h.orders.List(currentUserID(c), c.Query("search"), p)
+	if err != nil {
+		utils.Error(c, http.StatusInternalServerError, "failed to load orders")
+		return
+	}
+	p.Total = total
+	utils.Success(c, http.StatusOK, "ok", gin.H{"items": orders, "pagination": p})
+}
+
+func (h *OrderHandler) Detail(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		utils.Error(c, http.StatusBadRequest, "invalid order id")
+		return
+	}
+	order, err := h.orders.Get(currentUserID(c), uint(id))
+	if err != nil {
+		utils.Error(c, orderErrorStatus(err), err.Error())
+		return
+	}
+	utils.Success(c, http.StatusOK, "ok", order)
+}
+
+func (h *OrderHandler) UploadPaymentProof(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		utils.Error(c, http.StatusBadRequest, "invalid order id")
+		return
+	}
+
+	url, err := utils.SaveUploadedFile(c, "proof", h.cfg.UploadDir, allowedProofExt, h.cfg.MaxUploadSizeMB)
+	if err != nil {
+		utils.Error(c, http.StatusBadRequest, uploadErrorMessage(err))
+		return
+	}
+
+	if err := h.orders.UploadPaymentProof(currentUserID(c), uint(id), url); err != nil {
+		utils.Error(c, orderErrorStatus(err), err.Error())
+		return
+	}
+	utils.Success(c, http.StatusOK, "payment proof uploaded", gin.H{"payment_proof_url": url})
+}
+
+func (h *OrderHandler) Cancel(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		utils.Error(c, http.StatusBadRequest, "invalid order id")
+		return
+	}
+	if err := h.orders.Cancel(currentUserID(c), uint(id)); err != nil {
+		utils.Error(c, orderErrorStatus(err), err.Error())
+		return
+	}
+	utils.Success(c, http.StatusOK, "order cancelled", nil)
+}
+
+func (h *OrderHandler) Confirm(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		utils.Error(c, http.StatusBadRequest, "invalid order id")
+		return
+	}
+	if err := h.orders.Confirm(currentUserID(c), uint(id)); err != nil {
+		utils.Error(c, orderErrorStatus(err), err.Error())
+		return
+	}
+	utils.Success(c, http.StatusOK, "order confirmed", nil)
+}
 
 // --- Admin order management ---
 
-func (h *OrderHandler) AdminList(c *gin.Context) { utils.NotImplemented(c, "listing all orders") }
+func (h *OrderHandler) AdminList(c *gin.Context) {
+	storeID, err := h.scopedStoreID(c)
+	if err != nil {
+		utils.Error(c, http.StatusInternalServerError, "failed to resolve store scope")
+		return
+	}
+	if requested := parseUintQuery(c, "store_id"); requested != 0 && storeID == 0 {
+		storeID = requested // super admin may filter by a specific store
+	}
 
-// ConfirmPayment: accept -> processing; reject -> back to waiting_payment.
-// Requires an explicit confirmation step before committing per spec.
-func (h *OrderHandler) ConfirmPayment(c *gin.Context) {
-	utils.NotImplemented(c, "confirming payment")
+	p := utils.ParsePagination(c)
+	orders, total, err := h.orders.ListForAdmin(storeID, p)
+	if err != nil {
+		utils.Error(c, http.StatusInternalServerError, "failed to load orders")
+		return
+	}
+	p.Total = total
+	utils.Success(c, http.StatusOK, "ok", gin.H{"items": orders, "pagination": p})
 }
 
-// Ship: processing -> shipped, once stock/mutation is actually on hand.
-func (h *OrderHandler) Ship(c *gin.Context) { utils.NotImplemented(c, "marking an order shipped") }
+type confirmPaymentRequest struct {
+	Approve bool `json:"approve"`
+}
 
-// AdminCancel: only allowed before shipped; restores stock via a new
-// StockJournal entry (StockRefCancel) rather than editing stock directly.
+func (h *OrderHandler) ConfirmPayment(c *gin.Context) {
+	order, ok := h.scopedOrder(c)
+	if !ok {
+		return
+	}
+	var req confirmPaymentRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	if order.Status != models.StatusWaitingConfirm {
+		utils.Error(c, http.StatusUnprocessableEntity, service.ErrInvalidTransition.Error())
+		return
+	}
+
+	if req.Approve {
+		order.Status = models.StatusProcessing
+	} else {
+		order.Status = models.StatusWaitingPayment
+	}
+	if err := h.saveAdminTransition(order, "payment reviewed by admin"); err != nil {
+		utils.Error(c, http.StatusInternalServerError, "failed to update order")
+		return
+	}
+	utils.Success(c, http.StatusOK, "payment reviewed", order)
+}
+
+func (h *OrderHandler) Ship(c *gin.Context) {
+	order, ok := h.scopedOrder(c)
+	if !ok {
+		return
+	}
+	if order.Status != models.StatusProcessing {
+		utils.Error(c, http.StatusUnprocessableEntity, service.ErrInvalidTransition.Error())
+		return
+	}
+
+	now := time.Now()
+	order.Status = models.StatusShipped
+	order.ShippedAt = &now
+	if err := h.saveAdminTransition(order, "marked as shipped"); err != nil {
+		utils.Error(c, http.StatusInternalServerError, "failed to update order")
+		return
+	}
+	utils.Success(c, http.StatusOK, "order shipped", order)
+}
+
 func (h *OrderHandler) AdminCancel(c *gin.Context) {
-	utils.NotImplemented(c, "cancelling an order (admin)")
+	order, ok := h.scopedOrder(c)
+	if !ok {
+		return
+	}
+	if order.Status == models.StatusShipped || order.Status == models.StatusConfirmed || order.Status == models.StatusCancelled {
+		utils.Error(c, http.StatusUnprocessableEntity, service.ErrInvalidTransition.Error())
+		return
+	}
+	if err := h.orders.AdminCancel(order); err != nil {
+		utils.Error(c, http.StatusInternalServerError, "failed to cancel order")
+		return
+	}
+	utils.Success(c, http.StatusOK, "order cancelled", nil)
+}
+
+// scopedStoreID returns the requesting admin's assigned store (store_admin)
+// or 0 for super_admin, meaning "all stores".
+func (h *OrderHandler) scopedStoreID(c *gin.Context) (uint, error) {
+	role, _ := c.Get(middleware.ContextRole)
+	if role != models.RoleStoreAdmin {
+		return 0, nil
+	}
+	return h.stores.AssignedStoreID(currentUserID(c))
+}
+
+func (h *OrderHandler) scopedOrder(c *gin.Context) (*models.Order, bool) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		utils.Error(c, http.StatusBadRequest, "invalid order id")
+		return nil, false
+	}
+	order, err := h.orders.GetForAdmin(uint(id))
+	if err != nil {
+		utils.Error(c, http.StatusNotFound, "order not found")
+		return nil, false
+	}
+
+	storeID, err := h.scopedStoreID(c)
+	if err != nil {
+		utils.Error(c, http.StatusInternalServerError, "failed to resolve store scope")
+		return nil, false
+	}
+	if storeID != 0 && order.StoreID != storeID {
+		utils.Error(c, http.StatusForbidden, "order belongs to a different store")
+		return nil, false
+	}
+	return order, true
+}
+
+func (h *OrderHandler) saveAdminTransition(order *models.Order, notes string) error {
+	return h.orders.SaveAdminTransition(order, notes)
+}
+
+func orderErrorStatus(err error) int {
+	switch {
+	case errors.Is(err, service.ErrEmptyCart), errors.Is(err, service.ErrOutOfStock),
+		errors.Is(err, service.ErrUnsupportedPayment), errors.Is(err, service.ErrInvalidTransition),
+		errors.Is(err, service.ErrPaymentWindowPassed):
+		return http.StatusUnprocessableEntity
+	case errors.Is(err, service.ErrAddressNotOwned), errors.Is(err, service.ErrOrderNotOwned):
+		return http.StatusNotFound
+	case errors.Is(err, service.ErrOutOfRange):
+		return http.StatusUnprocessableEntity
+	default:
+		return http.StatusInternalServerError
+	}
+}
+
+func uploadErrorMessage(err error) string {
+	switch {
+	case errors.Is(err, utils.ErrUploadTooLarge):
+		return "ukuran file maksimum 1MB"
+	case errors.Is(err, utils.ErrUploadBadExt):
+		return "format file harus .jpg, .jpeg, atau .png"
+	default:
+		return "gagal mengunggah file"
+	}
 }

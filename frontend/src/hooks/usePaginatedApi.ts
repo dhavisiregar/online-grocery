@@ -15,6 +15,7 @@ interface ListResponse<T> {
 export function usePaginatedApi<T>(path: string, extraQuery: Record<string, string | number | undefined> = {}) {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
+  const [version, setVersion] = useState(0);
   const [items, setItems] = useState<T[]>([]);
   const [pagination, setPagination] = useState<Pagination | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -35,7 +36,9 @@ export function usePaginatedApi<T>(path: string, extraQuery: Record<string, stri
         .finally(() => setLoading(false));
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [path, page, search, extraKey]);
+  }, [path, page, search, extraKey, version]);
 
-  return { items, pagination, error, loading, page, setPage, search, setSearch };
+  const reload = () => setVersion((v) => v + 1);
+
+  return { items, pagination, error, loading, page, setPage, search, setSearch, reload };
 }

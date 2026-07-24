@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import Link from "next/link";
 
 import { api, ApiError } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
@@ -51,6 +52,21 @@ function ProfileContent() {
             <dd className="font-medium">{user.is_verified ? "Terverifikasi" : "Belum verifikasi"}</dd>
           </div>
         </dl>
+      </div>
+
+      <div className="mt-4 flex flex-wrap gap-3">
+        <Link
+          href="/addresses"
+          className="rounded-md border border-border px-4 py-2 text-sm font-medium hover:bg-surface"
+        >
+          Kelola Alamat
+        </Link>
+        <Link
+          href="/orders"
+          className="rounded-md border border-border px-4 py-2 text-sm font-medium hover:bg-surface"
+        >
+          Pesanan Saya
+        </Link>
       </div>
 
       <ProfileForm onUpdated={refresh} initialName={user.name} initialPhone={user.phone ?? ""} />

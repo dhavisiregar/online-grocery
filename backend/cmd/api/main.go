@@ -24,8 +24,8 @@ func main() {
 	}
 
 	repos := buildRepositories(db)
-	svcs := buildServices(repos, cfg)
-	h := buildHandlers(repos, svcs)
+	svcs := buildServices(db, repos, cfg)
+	h := buildHandlers(repos, svcs, cfg)
 
 	r := gin.Default()
 	r.Use(cors.New(cors.Config{
@@ -34,6 +34,7 @@ func main() {
 		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
 		AllowCredentials: true,
 	}))
+	r.Static("/uploads", cfg.UploadDir)
 
 	routes.Register(r, h, cfg)
 
@@ -48,6 +49,9 @@ type repositories struct {
 	stores     *repository.StoreRepository
 	categories *repository.CategoryRepository
 	products   *repository.ProductRepository
+	addresses  *repository.AddressRepository
+	carts      *repository.CartRepository
+	orders     *repository.OrderRepository
 }
 
 func buildRepositories(db *gorm.DB) *repositories {
@@ -56,34 +60,42 @@ func buildRepositories(db *gorm.DB) *repositories {
 		stores:     repository.NewStoreRepository(db),
 		categories: repository.NewCategoryRepository(db),
 		products:   repository.NewProductRepository(db),
+		addresses:  repository.NewAddressRepository(db),
+		carts:      repository.NewCartRepository(db),
+		orders:     repository.NewOrderRepository(db),
 	}
 }
 
 type services struct {
 	auth   *service.AuthService
 	stores *service.StoreService
+	cart   *service.CartService
+	order  *service.OrderService
 }
 
-func buildServices(r *repositories, cfg *config.Config) *services {
+func buildServices(db *gorm.DB, r *repositories, cfg *config.Config) *services {
 	mailer := service.NewMailer(cfg)
+	storeSvc := service.NewStoreService(r.stores)
 	return &services{
 		auth:   service.NewAuthService(r.users, mailer, cfg),
-		stores: service.NewStoreService(r.stores),
+		stores: storeSvc,
+		cart:   service.NewCartService(r.carts, r.products, r.users),
+		order:  service.NewOrderService(db, r.orders, r.carts, r.addresses, storeSvc),
 	}
 }
 
-func buildHandlers(r *repositories, s *services) *routes.Handlers {
+func buildHandlers(r *repositories, s *services, cfg *config.Config) *routes.Handlers {
 	return &routes.Handlers{
 		Auth:      handlers.NewAuthHandler(s.auth, r.users),
 		User:      handlers.NewUserHandler(r.users),
-		Address:   handlers.NewAddressHandler(),
+		Address:   handlers.NewAddressHandler(r.addresses, s.stores),
 		Store:     handlers.NewStoreHandler(s.stores, r.stores),
 		Category:  handlers.NewCategoryHandler(r.categories),
 		Product:   handlers.NewProductHandler(r.products, s.stores),
 		Inventory: handlers.NewInventoryHandler(),
 		Discount:  handlers.NewDiscountHandler(),
-		Cart:      handlers.NewCartHandler(),
-		Order:     handlers.NewOrderHandler(),
+		Cart:      handlers.NewCartHandler(s.cart),
+		Order:     handlers.NewOrderHandler(s.order, r.stores, cfg),
 		Report:    handlers.NewReportHandler(),
 	}
 }
