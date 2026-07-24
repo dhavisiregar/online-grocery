@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
 
-import { api, ApiError } from "@/lib/api";
+import { api, ApiError, resolveUploadUrl } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { RequireAuth } from "@/components/auth/RequireAuth";
 import { FormField, inputClass, primaryButtonClass } from "@/components/auth/AuthCard";
@@ -31,7 +31,11 @@ function ProfileContent() {
           <div className="flex h-16 w-16 items-center justify-center rounded-full bg-brand-light text-2xl">
             {user.profile_photo_url ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={user.profile_photo_url} alt={user.name} className="h-16 w-16 rounded-full object-cover" />
+              <img
+                src={resolveUploadUrl(user.profile_photo_url)}
+                alt={user.name}
+                className="h-16 w-16 rounded-full object-cover"
+              />
             ) : (
               "🙂"
             )}

@@ -20,6 +20,15 @@ export function setToken(token: string | null) {
   else localStorage.removeItem(TOKEN_KEY);
 }
 
+// The backend returns uploaded file paths as "/uploads/...", relative to
+// its own origin (e.g. :8080) — resolve them against that instead of the
+// frontend's origin, where they'd 404.
+export function resolveUploadUrl(path?: string | null): string | undefined {
+  if (!path) return undefined;
+  if (/^https?:\/\//.test(path)) return path;
+  return `${API_URL}${path}`;
+}
+
 interface Envelope<T> {
   success: boolean;
   message: string;

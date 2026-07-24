@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 
-import { api, ApiError } from "@/lib/api";
+import { api, ApiError, resolveUploadUrl } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
 import { formatIDR } from "@/lib/format";
@@ -43,7 +43,7 @@ export default function ProductDetailPage() {
   }
 
   const { product, stock } = item;
-  const image = product.images?.[0]?.image_url;
+  const image = resolveUploadUrl(product.images?.[0]?.image_url);
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8">

@@ -2,11 +2,12 @@ import Link from "next/link";
 
 import type { ProductWithStock } from "@/types";
 import { formatIDR } from "@/lib/format";
+import { resolveUploadUrl } from "@/lib/api";
 
 export function ProductCard({ item }: { item: ProductWithStock }) {
   const { product, stock } = item;
   const outOfStock = stock <= 0;
-  const image = product.images?.[0]?.image_url;
+  const image = resolveUploadUrl(product.images?.[0]?.image_url);
 
   return (
     <Link
