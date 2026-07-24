@@ -42,7 +42,8 @@ export default function ProductDetailPage() {
     );
   }
 
-  const { product, stock } = item;
+  const { product, stock, effective_price: effectivePrice } = item;
+  const hasDiscount = effectivePrice !== undefined && effectivePrice < product.price;
   const image = resolveUploadUrl(product.images?.[0]?.image_url);
 
   return (
@@ -62,7 +63,12 @@ export default function ProductDetailPage() {
             <span className="text-sm font-medium text-brand-dark">{product.category.name}</span>
           )}
           <h1 className="text-2xl font-bold">{product.name}</h1>
-          <p className="text-2xl font-semibold">{formatIDR(product.price)}</p>
+          <div>
+            {hasDiscount && (
+              <p className="text-sm text-foreground/40 line-through">{formatIDR(product.price)}</p>
+            )}
+            <p className="text-2xl font-semibold">{formatIDR(hasDiscount ? effectivePrice : product.price)}</p>
+          </div>
           <p className="whitespace-pre-line text-sm text-foreground/70">
             {product.description || "Tidak ada deskripsi untuk produk ini."}
           </p>
@@ -71,6 +77,8 @@ export default function ProductDetailPage() {
             productId={product.id}
             storeId={item.store_id}
             stock={stock}
+            price={product.price}
+            effectivePrice={effectivePrice}
             user={user}
             onAdded={refreshCart}
           />

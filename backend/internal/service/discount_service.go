@@ -158,6 +158,32 @@ func (s *DiscountService) ComputeItemDiscounts(storeID uint, items []models.Cart
 	return perItem, total, nil
 }
 
+// EffectivePrice previews what a single unit of a product would cost under
+// its best active manual/BOGO discount right now — used to show a
+// strikethrough "before" price on the storefront. BOGO never lowers a
+// single unit's price (its saving only appears from the 2nd unit on), so
+// it never triggers hasDiscount here even though it does at checkout.
+func (s *DiscountService) EffectivePrice(storeID, productID uint, price float64) (effective float64, hasDiscount bool, err error) {
+	rules, err := s.discounts.ActiveForProducts(storeID, []uint{productID}, time.Now())
+	if err != nil {
+		return price, false, err
+	}
+	one := models.CartItem{ProductID: productID, Quantity: 1, Product: models.Product{Price: price}}
+	best := 0.0
+	for _, d := range rules {
+		if d.ProductID == nil || *d.ProductID != productID {
+			continue
+		}
+		if amt := discountAmountForItem(d, one); amt > best {
+			best = amt
+		}
+	}
+	if best <= 0 {
+		return price, false, nil
+	}
+	return price - best, true, nil
+}
+
 func discountAmountForItem(d models.Discount, item models.CartItem) float64 {
 	lineTotal := item.Product.Price * float64(item.Quantity)
 	switch d.Type {

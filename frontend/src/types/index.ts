@@ -54,6 +54,7 @@ export interface ProductWithStock {
   product: Product;
   stock: number;
   store_id: number;
+  effective_price?: number;
 }
 
 export interface Pagination {

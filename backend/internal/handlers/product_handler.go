@@ -18,19 +18,21 @@ import (
 var allowedImageExt = []string{".jpg", ".jpeg", ".png", ".gif", ".webp"}
 
 type ProductHandler struct {
-	products *repository.ProductRepository
-	stores   *service.StoreService
-	cfg      *config.Config
+	products  *repository.ProductRepository
+	stores    *service.StoreService
+	discounts *service.DiscountService
+	cfg       *config.Config
 }
 
-func NewProductHandler(products *repository.ProductRepository, stores *service.StoreService, cfg *config.Config) *ProductHandler {
-	return &ProductHandler{products: products, stores: stores, cfg: cfg}
+func NewProductHandler(products *repository.ProductRepository, stores *service.StoreService, discounts *service.DiscountService, cfg *config.Config) *ProductHandler {
+	return &ProductHandler{products: products, stores: stores, discounts: discounts, cfg: cfg}
 }
 
 type productWithStock struct {
-	Product interface{} `json:"product"`
-	Stock   int         `json:"stock"`
-	StoreID uint        `json:"store_id"`
+	Product        interface{} `json:"product"`
+	Stock          int         `json:"stock"`
+	StoreID        uint        `json:"store_id"`
+	EffectivePrice *float64    `json:"effective_price,omitempty"`
 }
 
 // List returns the catalog for the shopper's resolved store (nearest, or an
@@ -142,7 +144,12 @@ func (h *ProductHandler) Detail(c *gin.Context) {
 	}
 
 	stock, _ := h.products.StockAt(storeID, product.ID)
-	utils.Success(c, http.StatusOK, "ok", productWithStock{Product: product, Stock: stock, StoreID: storeID})
+
+	resp := productWithStock{Product: product, Stock: stock, StoreID: storeID}
+	if effective, hasDiscount, err := h.discounts.EffectivePrice(storeID, product.ID, product.Price); err == nil && hasDiscount {
+		resp.EffectivePrice = &effective
+	}
+	utils.Success(c, http.StatusOK, "ok", resp)
 }
 
 type productRequest struct {

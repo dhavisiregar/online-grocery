@@ -114,7 +114,7 @@ func buildHandlers(r *repositories, s *services, cfg *config.Config) *routes.Han
 		Address:   handlers.NewAddressHandler(r.addresses, s.stores, s.shipping, r.carts),
 		Store:     handlers.NewStoreHandler(s.stores, r.stores),
 		Category:  handlers.NewCategoryHandler(r.categories),
-		Product:   handlers.NewProductHandler(r.products, s.stores, cfg),
+		Product:   handlers.NewProductHandler(r.products, s.stores, s.discount, cfg),
 		Inventory: handlers.NewInventoryHandler(r.inventory, r.stores),
 		Discount:  handlers.NewDiscountHandler(s.discount, r.stores),
 		Cart:      handlers.NewCartHandler(s.cart),
