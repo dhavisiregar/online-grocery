@@ -3,20 +3,59 @@
 import { useEffect, useState } from "react";
 
 import { api, ApiError } from "@/lib/api";
+import { Modal } from "@/components/admin/Modal";
 import { StatusNotice } from "@/components/admin/StatusNotice";
+import { StoreForm, type StoreFormValues } from "@/components/admin/StoreForm";
 import type { Store } from "@/types";
 
 export default function AdminStoresPage() {
   const [stores, setStores] = useState<Store[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState<Store | "new" | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [assigning, setAssigning] = useState<Store | null>(null);
 
   useEffect(() => {
+    load();
+  }, []);
+
+  function load() {
+    setLoading(true);
     api<Store[]>("/api/stores", { auth: false })
       .then(setStores)
       .catch((err) => setError(err instanceof ApiError ? err.message : "Gagal memuat toko"))
       .finally(() => setLoading(false));
-  }, []);
+  }
+
+  async function handleSubmit(values: StoreFormValues) {
+    setSubmitting(true);
+    setFormError(null);
+    try {
+      if (editing && editing !== "new") {
+        await api(`/api/admin/stores/${editing.id}`, { method: "PUT", body: values });
+      } else {
+        await api("/api/admin/stores", { method: "POST", body: values });
+      }
+      setEditing(null);
+      load();
+    } catch (err) {
+      setFormError(err instanceof ApiError ? err.message : "Gagal menyimpan toko");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleDelete(store: Store) {
+    if (!window.confirm(`Hapus toko "${store.name}"?`)) return;
+    try {
+      await api(`/api/admin/stores/${store.id}`, { method: "DELETE" });
+      load();
+    } catch (err) {
+      alert(err instanceof ApiError ? err.message : "Gagal menghapus toko");
+    }
+  }
 
   return (
     <div>
@@ -24,19 +63,14 @@ export default function AdminStoresPage() {
         <h1 className="text-xl font-bold">Toko</h1>
         <button
           type="button"
-          disabled
-          title="Form tambah toko (dengan titik lokasi) belum diimplementasikan"
-          className="rounded-md bg-brand px-4 py-2 text-sm font-medium text-white opacity-50"
+          onClick={() => setEditing("new")}
+          className="rounded-md bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark"
         >
           + Tambah Toko
         </button>
       </div>
 
-      {error && (
-        <div className="mt-4">
-          <StatusNotice message={error} />
-        </div>
-      )}
+      {error && <div className="mt-4"><StatusNotice message={error} /></div>}
       {loading && <p className="mt-4 text-sm text-foreground/60">Memuat…</p>}
 
       {!loading && !error && (
@@ -47,7 +81,8 @@ export default function AdminStoresPage() {
                 <th className="p-3">Nama</th>
                 <th className="p-3">Kota</th>
                 <th className="p-3">Radius Layanan</th>
-                <th className="p-3">Toko Utama</th>
+                <th className="p-3">Utama</th>
+                <th className="p-3">Aksi</th>
               </tr>
             </thead>
             <tbody>
@@ -57,11 +92,24 @@ export default function AdminStoresPage() {
                   <td className="p-3">{s.city}</td>
                   <td className="p-3">{s.max_distance_km} km</td>
                   <td className="p-3">{s.is_main ? "Ya" : "-"}</td>
+                  <td className="p-3">
+                    <div className="flex gap-3">
+                      <button type="button" onClick={() => setEditing(s)} className="text-brand-dark hover:underline">
+                        Edit
+                      </button>
+                      <button type="button" onClick={() => setAssigning(s)} className="text-brand-dark hover:underline">
+                        Tempatkan Admin
+                      </button>
+                      <button type="button" onClick={() => handleDelete(s)} className="text-red-600 hover:underline">
+                        Hapus
+                      </button>
+                    </div>
+                  </td>
                 </tr>
               ))}
               {stores.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="p-6 text-center text-foreground/50">
+                  <td colSpan={5} className="p-6 text-center text-foreground/50">
                     Belum ada toko terdaftar.
                   </td>
                 </tr>
@@ -70,6 +118,79 @@ export default function AdminStoresPage() {
           </table>
         </div>
       )}
+
+      {editing !== null && (
+        <Modal title={editing === "new" ? "Tambah Toko" : "Edit Toko"} onClose={() => setEditing(null)}>
+          <StoreForm
+            initial={editing === "new" ? undefined : editing}
+            onSubmit={handleSubmit}
+            submitting={submitting}
+            error={formError}
+          />
+        </Modal>
+      )}
+
+      {assigning && (
+        <AssignAdminModal store={assigning} onClose={() => setAssigning(null)} onAssigned={load} />
+      )}
     </div>
+  );
+}
+
+function AssignAdminModal({
+  store,
+  onClose,
+  onAssigned,
+}: {
+  store: Store;
+  onClose: () => void;
+  onAssigned: () => void;
+}) {
+  const [userId, setUserId] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setSubmitting(true);
+    setError(null);
+    try {
+      await api(`/api/admin/stores/${store.id}/assign-admin`, {
+        method: "POST",
+        body: { user_id: Number(userId) },
+      });
+      onAssigned();
+      onClose();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Gagal menempatkan admin");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <Modal title={`Tempatkan Admin — ${store.name}`} onClose={onClose}>
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <p className="text-sm text-foreground/60">
+          Masukkan ID pengguna store admin (lihat di halaman Store Admin) yang akan ditempatkan di toko ini.
+        </p>
+        <input
+          required
+          type="number"
+          placeholder="ID Pengguna"
+          value={userId}
+          onChange={(e) => setUserId(e.target.value)}
+          className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+        />
+        {error && <p className="text-sm text-red-600">{error}</p>}
+        <button
+          type="submit"
+          disabled={submitting}
+          className="rounded-md bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark disabled:opacity-60"
+        >
+          {submitting ? "Menyimpan…" : "Tempatkan"}
+        </button>
+      </form>
+    </Modal>
   );
 }

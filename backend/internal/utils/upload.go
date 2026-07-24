@@ -49,6 +49,38 @@ func SaveUploadedFile(c *gin.Context, field, uploadDir string, allowedExt []stri
 	return "/uploads/" + filename, nil
 }
 
+// SaveUploadedFileHeader validates and saves a single already-opened
+// *multipart.FileHeader — used when multiple files share one form field
+// (c.MultipartForm().File[field]) and FormFile can't be used per-file.
+func SaveUploadedFileHeader(header *multipart.FileHeader, uploadDir string, allowedExt []string, maxSizeMB int64) (string, error) {
+	if header.Size > maxSizeMB*1024*1024 {
+		return "", ErrUploadTooLarge
+	}
+	ext := strings.ToLower(filepath.Ext(header.Filename))
+	if !containsExt(allowedExt, ext) {
+		return "", ErrUploadBadExt
+	}
+
+	src, err := header.Open()
+	if err != nil {
+		return "", err
+	}
+	defer src.Close()
+
+	if err := os.MkdirAll(uploadDir, 0o755); err != nil {
+		return "", err
+	}
+	name, err := RandomToken()
+	if err != nil {
+		return "", err
+	}
+	filename := name + ext
+	if err := writeFile(filepath.Join(uploadDir, filename), src); err != nil {
+		return "", err
+	}
+	return "/uploads/" + filename, nil
+}
+
 func containsExt(allowed []string, ext string) bool {
 	for _, a := range allowed {
 		if a == ext {

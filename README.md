@@ -120,17 +120,17 @@ message instead of failing silently.
 | Profile view + update (name/phone) | ✅ Built (photo upload validation still open) |
 | User addresses (CRUD, primary) | ✅ Built end-to-end, incl. "use current location" |
 | Shipping cost calculation | ✅ Distance-based placeholder — swap for RajaOngkir/OpenCage |
-| Store management (super admin CRUD) | ⏳ List works; create/update/delete stubbed |
+| Store management (super admin CRUD + assign store admin) | ✅ Built end-to-end |
 
 ### Feature 2 — Admin Accounts, Products, Inventory, Discounts, Reports
 
 | Area | Status |
 | --- | --- |
 | Admin user/store-admin listing | ✅ Built |
-| Store admin create/update/delete | ⏳ Stubbed |
+| Store admin create/update/delete (admin-provisioned, pre-verified) | ✅ Built end-to-end |
 | Product catalog, search, detail (with per-store stock) | ✅ Built |
-| Product/category create/update/delete + image upload | ⏳ Stubbed |
-| Inventory (stock journal, adjustments) | ⏳ Stubbed — see `models.StockJournal` |
+| Product/category create/update/delete + multi-image upload | ✅ Built end-to-end (super admin write, store admin read-only) |
+| Inventory (stock journal, adjustments, store-scoped) | ✅ Built end-to-end |
 | Discounts (manual/min-purchase/BOGO) + vouchers | ⏳ Stubbed — see `models.Discount`, `models.Voucher` |
 | Sales & stock reports | ⏳ Stubbed |
 
@@ -146,7 +146,10 @@ message instead of failing silently.
 
 Verified locally: register → verify → add address → add to cart → checkout
 → upload payment proof → admin approves → admin ships → customer confirms
-receipt, with correct stock deduction/restoration at every step.
+receipt, with correct stock deduction/restoration at every step. Also
+verified: super admin creates a store + category + product (with image) +
+store admin account, assigns the store admin to a store, and that store
+admin's inventory/product access is correctly scoped and permission-gated.
 
 Every stubbed handler lives in `backend/internal/handlers/*.go` with a
 one-line comment on what it needs (e.g. `InventoryHandler.Adjust`,

@@ -49,3 +49,41 @@ func (r *StoreRepository) AssignedStoreID(userID uint) (uint, error) {
 	}
 	return admin.StoreID, nil
 }
+
+func (r *StoreRepository) Create(store *models.Store) error {
+	return r.db.Create(store).Error
+}
+
+func (r *StoreRepository) Update(store *models.Store) error {
+	return r.db.Save(store).Error
+}
+
+func (r *StoreRepository) Delete(id uint) error {
+	return r.db.Delete(&models.Store{}, id).Error
+}
+
+func (r *StoreRepository) ExistsByName(name string) bool {
+	var count int64
+	r.db.Model(&models.Store{}).Where("name = ?", name).Count(&count)
+	return count > 0
+}
+
+// AssignAdmin upserts the StoreAdmin binding for a user — a store_admin
+// manages exactly one store, so re-assigning moves them rather than adding
+// a second row (models.StoreAdmin.UserID is unique).
+func (r *StoreRepository) AssignAdmin(userID, storeID uint) error {
+	var existing models.StoreAdmin
+	err := r.db.Where("user_id = ?", userID).First(&existing).Error
+	if err == gorm.ErrRecordNotFound {
+		return r.db.Create(&models.StoreAdmin{UserID: userID, StoreID: storeID}).Error
+	}
+	if err != nil {
+		return err
+	}
+	existing.StoreID = storeID
+	return r.db.Save(&existing).Error
+}
+
+func (r *StoreRepository) RemoveAdmin(userID uint) error {
+	return r.db.Where("user_id = ?", userID).Delete(&models.StoreAdmin{}).Error
+}

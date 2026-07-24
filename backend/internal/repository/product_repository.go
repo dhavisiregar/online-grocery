@@ -72,3 +72,22 @@ func (r *ProductRepository) ExistsByName(name string) bool {
 	r.db.Model(&models.Product{}).Where("name = ?", name).Count(&count)
 	return count > 0
 }
+
+func (r *ProductRepository) Create(product *models.Product) error {
+	return r.db.Create(product).Error
+}
+
+func (r *ProductRepository) Update(product *models.Product) error {
+	return r.db.Save(product).Error
+}
+
+func (r *ProductRepository) Delete(id uint) error {
+	return r.db.Delete(&models.Product{}, id).Error
+}
+
+func (r *ProductRepository) AddImages(images []models.ProductImage) error {
+	if len(images) == 0 {
+		return nil
+	}
+	return r.db.Create(&images).Error
+}

@@ -4,6 +4,7 @@ import (
 	"gorm.io/gorm"
 
 	"online-grocery/backend/internal/models"
+	"online-grocery/backend/internal/utils"
 )
 
 type InventoryRepository struct {
@@ -19,6 +20,34 @@ func NewInventoryRepository(db *gorm.DB) *InventoryRepository {
 // order write they must stay atomic with.
 func (r *InventoryRepository) DB() *gorm.DB {
 	return r.db
+}
+
+// Adjust writes a journal entry and updates the store's stock atomically.
+// storeID==0 is rejected by the caller (handler) before reaching here.
+func (r *InventoryRepository) Adjust(storeID, productID uint, journalType models.StockJournalType, quantity int, createdByID uint, notes string) error {
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		return AdjustStock(tx, storeID, productID, journalType, quantity, models.StockRefManual, nil, createdByID, notes)
+	})
+}
+
+type JournalFilter struct {
+	StoreID uint
+}
+
+func (r *InventoryRepository) List(f JournalFilter, p utils.Pagination) ([]models.StockJournal, int64, error) {
+	query := r.db.Model(&models.StockJournal{})
+	if f.StoreID != 0 {
+		query = query.Where("store_id = ?", f.StoreID)
+	}
+
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	var journals []models.StockJournal
+	err := query.Preload("Product").Order("created_at DESC").Offset(p.Offset()).Limit(p.Limit).Find(&journals).Error
+	return journals, total, err
 }
 
 // AdjustStock writes a StockJournal entry and applies its effect to the

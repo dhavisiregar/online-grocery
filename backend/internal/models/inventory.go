@@ -46,4 +46,6 @@ type StockJournal struct {
 	Notes         string             `gorm:"size:255" json:"notes"`
 	CreatedByID   uint               `gorm:"not null" json:"created_by_id"`
 	CreatedAt     time.Time          `json:"created_at"`
+
+	Product Product `gorm:"foreignKey:ProductID" json:"product,omitempty"`
 }

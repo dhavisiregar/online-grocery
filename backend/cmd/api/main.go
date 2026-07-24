@@ -52,6 +52,7 @@ type repositories struct {
 	addresses  *repository.AddressRepository
 	carts      *repository.CartRepository
 	orders     *repository.OrderRepository
+	inventory  *repository.InventoryRepository
 }
 
 func buildRepositories(db *gorm.DB) *repositories {
@@ -63,6 +64,7 @@ func buildRepositories(db *gorm.DB) *repositories {
 		addresses:  repository.NewAddressRepository(db),
 		carts:      repository.NewCartRepository(db),
 		orders:     repository.NewOrderRepository(db),
+		inventory:  repository.NewInventoryRepository(db),
 	}
 }
 
@@ -87,12 +89,12 @@ func buildServices(db *gorm.DB, r *repositories, cfg *config.Config) *services {
 func buildHandlers(r *repositories, s *services, cfg *config.Config) *routes.Handlers {
 	return &routes.Handlers{
 		Auth:      handlers.NewAuthHandler(s.auth, r.users),
-		User:      handlers.NewUserHandler(r.users),
+		User:      handlers.NewUserHandler(r.users, r.stores),
 		Address:   handlers.NewAddressHandler(r.addresses, s.stores),
 		Store:     handlers.NewStoreHandler(s.stores, r.stores),
 		Category:  handlers.NewCategoryHandler(r.categories),
-		Product:   handlers.NewProductHandler(r.products, s.stores),
-		Inventory: handlers.NewInventoryHandler(),
+		Product:   handlers.NewProductHandler(r.products, s.stores, cfg),
+		Inventory: handlers.NewInventoryHandler(r.inventory, r.stores),
 		Discount:  handlers.NewDiscountHandler(),
 		Cart:      handlers.NewCartHandler(s.cart),
 		Order:     handlers.NewOrderHandler(s.order, r.stores, cfg),
