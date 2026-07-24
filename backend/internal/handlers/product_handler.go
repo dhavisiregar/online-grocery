@@ -70,6 +70,26 @@ func (h *ProductHandler) List(c *gin.Context) {
 	utils.Success(c, http.StatusOK, "ok", gin.H{"items": items, "pagination": p, "store_id": storeID})
 }
 
+// AdminList is the catalog management listing: flat products (no per-store
+// stock wrapper — stock belongs to inventory management, not the product
+// admin table), paginated and filterable by category/search.
+func (h *ProductHandler) AdminList(c *gin.Context) {
+	p := utils.ParsePagination(c)
+	filter := repository.ProductFilter{
+		CategoryID: parseUintQuery(c, "category_id"),
+		Search:     c.Query("search"),
+	}
+
+	products, total, err := h.products.ListByStore(filter, p)
+	if err != nil {
+		utils.Error(c, http.StatusInternalServerError, "failed to load products")
+		return
+	}
+
+	p.Total = total
+	utils.Success(c, http.StatusOK, "ok", gin.H{"items": products, "pagination": p})
+}
+
 func (h *ProductHandler) resolveStoreID(c *gin.Context) (uint, error) {
 	if id := parseUintQuery(c, "store_id"); id != 0 {
 		return id, nil

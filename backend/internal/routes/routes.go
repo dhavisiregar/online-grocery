@@ -100,7 +100,7 @@ func registerAdminRoutes(api *gin.RouterGroup, h *Handlers, cfg *config.Config) 
 	superOnly.Use(middleware.RequireRole(models.RoleSuperAdmin))
 	registerSuperAdminRoutes(superOnly, h)
 
-	admin.GET("/products", h.Product.List)
+	admin.GET("/products", h.Product.AdminList)
 	admin.GET("/categories", h.Category.List)
 
 	inv := admin.Group("/inventory")
