@@ -87,9 +87,9 @@ func registerUserRoutes(api *gin.RouterGroup, h *Handlers, cfg *config.Config) {
 
 	order := g.Group("/orders")
 	order.POST("", h.Order.Create)
+	order.POST("/buy-now", h.Order.CreateBuyNow)
 	order.GET("", h.Order.List)
 	order.GET("/:id", h.Order.Detail)
-	order.POST("/:id/payment-proof", h.Order.UploadPaymentProof)
 	order.POST("/:id/cancel", h.Order.Cancel)
 	order.POST("/:id/confirm", h.Order.Confirm)
 	order.POST("/:id/midtrans-token", h.Order.MidtransToken)

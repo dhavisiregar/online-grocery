@@ -12,19 +12,15 @@ import (
 )
 
 var (
-	ErrEmptyCart           = errors.New("keranjang Anda kosong")
-	ErrAddressNotOwned     = errors.New("alamat tidak ditemukan")
-	ErrUnsupportedPayment  = errors.New("metode pembayaran tidak didukung")
-	ErrOrderNotOwned       = errors.New("pesanan tidak ditemukan")
-	ErrInvalidTransition   = errors.New("pesanan tidak dapat diproses pada status saat ini")
-	ErrPaymentWindowPassed = errors.New("batas waktu unggah bukti pembayaran sudah lewat")
-	ErrNotMidtransOrder    = errors.New("pesanan ini tidak menggunakan payment gateway")
-	ErrInvalidSignature    = errors.New("tanda tangan notifikasi tidak valid")
+	ErrEmptyCart         = errors.New("keranjang Anda kosong")
+	ErrAddressNotOwned   = errors.New("alamat tidak ditemukan")
+	ErrOrderNotOwned     = errors.New("pesanan tidak ditemukan")
+	ErrInvalidTransition = errors.New("pesanan tidak dapat diproses pada status saat ini")
+	ErrNotMidtransOrder  = errors.New("pesanan ini tidak menggunakan payment gateway")
+	ErrInvalidSignature  = errors.New("tanda tangan notifikasi tidak valid")
 
 	paymentWindow     = 1 * time.Hour
 	autoConfirmWindow = 7 * 24 * time.Hour
-
-	validPaymentMethods = map[string]bool{"manual_transfer": true, "midtrans": true}
 )
 
 type OrderService struct {
@@ -33,6 +29,7 @@ type OrderService struct {
 	carts     *repository.CartRepository
 	addresses *repository.AddressRepository
 	users     *repository.UserRepository
+	products  *repository.ProductRepository
 	storeSvc  *StoreService
 	shipping  *ShippingService
 	midtrans  *MidtransService
@@ -44,28 +41,27 @@ func NewOrderService(
 	carts *repository.CartRepository,
 	addresses *repository.AddressRepository,
 	users *repository.UserRepository,
+	products *repository.ProductRepository,
 	storeSvc *StoreService,
 	shipping *ShippingService,
 	midtrans *MidtransService,
 ) *OrderService {
 	return &OrderService{
-		db: db, orders: orders, carts: carts, addresses: addresses, users: users,
+		db: db, orders: orders, carts: carts, addresses: addresses, users: users, products: products,
 		storeSvc: storeSvc, shipping: shipping, midtrans: midtrans,
 	}
 }
 
-// Create validates the cart against the nearest warehouse to the shipping
-// address, deducts stock via a StockJournal for each line, and writes the
-// order atomically. See models.StockJournal for why stock is never edited
-// directly. shippingCourier/shippingService select which of the estimated
-// options to charge — recomputed server-side rather than trusting a
-// client-supplied cost, falling back to the cheapest option if omitted or
-// no longer offered.
-func (s *OrderService) Create(userID, addressID uint, paymentMethod, shippingCourier, shippingService string) (*models.Order, error) {
-	if !validPaymentMethods[paymentMethod] {
-		return nil, ErrUnsupportedPayment
-	}
-	if paymentMethod == "midtrans" && !s.midtrans.Configured() {
+// Create checks out the shopper's entire cart against the nearest warehouse
+// to the shipping address, deducts stock via a StockJournal for each line,
+// and writes the order atomically. See models.StockJournal for why stock
+// is never edited directly. shippingCourier/shippingService select which
+// of the estimated options to charge — recomputed server-side rather than
+// trusting a client-supplied cost, falling back to the cheapest option if
+// omitted or no longer offered. Payment is always via Midtrans; that's the
+// only payment method this app supports.
+func (s *OrderService) Create(userID, addressID uint, shippingCourier, shippingService string) (*models.Order, error) {
+	if !s.midtrans.Configured() {
 		return nil, ErrMidtransNotConfigured
 	}
 
@@ -98,11 +94,42 @@ func (s *OrderService) Create(userID, addressID uint, paymentMethod, shippingCou
 	options := s.shipping.Estimate(store, addr, weight)
 	chosen := selectShippingOption(options, shippingCourier, shippingService)
 
-	order, err := s.commitOrder(userID, addressID, store.ID, paymentMethod, chosen, items)
+	return s.commitOrder(userID, addressID, store.ID, chosen, items, cart.ID)
+}
+
+// CreateBuyNow checks out a single product directly, bypassing the cart
+// entirely — it never reads or writes cart_items, so it can't contaminate
+// whatever the shopper already has in their real cart. Everything else
+// (store resolution, stock check, stock deduction) is identical to Create.
+func (s *OrderService) CreateBuyNow(userID, productID, storeID uint, quantity int, addressID uint, shippingCourier, shippingService string) (*models.Order, error) {
+	if !s.midtrans.Configured() {
+		return nil, ErrMidtransNotConfigured
+	}
+	if quantity < 1 {
+		quantity = 1
+	}
+
+	addr, err := s.addresses.FindByID(addressID)
+	if err != nil || addr.UserID != userID {
+		return nil, ErrAddressNotOwned
+	}
+
+	product, err := s.products.FindByID(productID)
 	if err != nil {
 		return nil, err
 	}
-	return order, nil
+
+	store, err := s.storeSvc.NearestStore(&addr.Latitude, &addr.Longitude)
+	if err != nil {
+		return nil, err
+	}
+
+	weight := product.WeightGrams * quantity
+	options := s.shipping.Estimate(store, addr, weight)
+	chosen := selectShippingOption(options, shippingCourier, shippingService)
+
+	items := []models.CartItem{{ProductID: productID, StoreID: storeID, Quantity: quantity, Product: *product}}
+	return s.commitOrder(userID, addressID, store.ID, chosen, items, 0)
 }
 
 // selectShippingOption never trusts a client-supplied cost — only the
@@ -117,7 +144,10 @@ func selectShippingOption(options []ShippingOption, courier, service string) Shi
 	return options[0]
 }
 
-func (s *OrderService) commitOrder(userID, addressID, storeID uint, paymentMethod string, shipping ShippingOption, items []models.CartItem) (*models.Order, error) {
+// commitOrder writes the order, its items, and the stock deduction as one
+// transaction. clearCartID, when non-zero, also empties that cart — pass 0
+// for a buy-now checkout that never touched the cart to begin with.
+func (s *OrderService) commitOrder(userID, addressID, storeID uint, shipping ShippingOption, items []models.CartItem, clearCartID uint) (*models.Order, error) {
 	var order *models.Order
 
 	err := s.db.Transaction(func(tx *gorm.DB) error {
@@ -159,7 +189,7 @@ func (s *OrderService) commitOrder(userID, addressID, storeID uint, paymentMetho
 			ShippingCourier: shipping.Courier,
 			ShippingService: shipping.Service,
 			Total:           subtotal + shipping.Cost,
-			PaymentMethod:   paymentMethod,
+			PaymentMethod:   "midtrans",
 			PaymentDeadline: &deadline,
 		}
 
@@ -185,7 +215,10 @@ func (s *OrderService) commitOrder(userID, addressID, storeID uint, paymentMetho
 			}
 		}
 
-		return tx.Where("cart_id = ?", items[0].CartID).Delete(&models.CartItem{}).Error
+		if clearCartID == 0 {
+			return nil
+		}
+		return tx.Where("cart_id = ?", clearCartID).Delete(&models.CartItem{}).Error
 	})
 
 	return order, err
@@ -243,34 +276,7 @@ func (s *OrderService) ListForAdmin(storeID uint, p utils.Pagination) ([]models.
 	return s.orders.List(repository.OrderFilter{StoreID: storeID}, p)
 }
 
-// UploadPaymentProof records the proof URL and moves the order to
-// waiting_confirmation. Must happen before the 1-hour payment deadline.
-func (s *OrderService) UploadPaymentProof(userID, orderID uint, url string) error {
-	order, err := s.Get(userID, orderID)
-	if err != nil {
-		return err
-	}
-	if order.PaymentMethod == "midtrans" {
-		return ErrInvalidTransition
-	}
-	if order.Status != models.StatusWaitingPayment {
-		return ErrInvalidTransition
-	}
-	if order.PaymentDeadline != nil && time.Now().After(*order.PaymentDeadline) {
-		return ErrPaymentWindowPassed
-	}
-
-	order.PaymentProofURL = &url
-	order.Status = models.StatusWaitingConfirm
-	if err := s.orders.Save(order); err != nil {
-		return err
-	}
-	return s.orders.AppendStatusHistory(&models.OrderStatusHistory{
-		OrderID: order.ID, Status: order.Status, ChangedBy: models.ChangedByUser, Notes: "payment proof uploaded",
-	})
-}
-
-// Cancel by the shopper is only allowed before payment proof is uploaded.
+// Cancel by the shopper is only allowed before payment is completed.
 func (s *OrderService) Cancel(userID, orderID uint) error {
 	order, err := s.Get(userID, orderID)
 	if err != nil {
@@ -361,9 +367,6 @@ func (s *OrderService) CreateMidtransPayment(userID, orderID uint) (*SnapResult,
 	if err != nil {
 		return nil, err
 	}
-	if order.PaymentMethod != "midtrans" {
-		return nil, ErrNotMidtransOrder
-	}
 	if order.Status != models.StatusWaitingPayment {
 		return nil, ErrInvalidTransition
 	}
@@ -389,7 +392,7 @@ func (s *OrderService) SyncMidtransStatus(userID, orderID uint) (*models.Order, 
 	if err != nil {
 		return nil, err
 	}
-	if order.PaymentMethod != "midtrans" || order.Status != models.StatusWaitingPayment {
+	if order.Status != models.StatusWaitingPayment {
 		return order, nil
 	}
 

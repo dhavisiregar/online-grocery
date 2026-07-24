@@ -1,38 +1,64 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
 import { api, ApiError } from "@/lib/api";
 import { RequireAuth } from "@/components/auth/RequireAuth";
 import { primaryButtonClass } from "@/components/auth/AuthCard";
 import { formatIDR } from "@/lib/format";
-import type { CartItem, Order, ShippingOption, UserAddress } from "@/types";
+import type { CartItem, Order, ProductWithStock, ShippingOption, UserAddress } from "@/types";
 
 export default function CheckoutPage() {
   return (
     <RequireAuth requireVerified>
-      <CheckoutContent />
+      <Suspense>
+        <CheckoutContent />
+      </Suspense>
     </RequireAuth>
   );
 }
 
-const MIDTRANS_ENABLED = Boolean(process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY);
-
 function CheckoutContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const buyNowProductId = searchParams.get("product_id");
+  const buyNowStoreId = searchParams.get("store_id");
+  const buyNowQty = Math.max(1, Number(searchParams.get("quantity") ?? "1"));
+  const isBuyNow = Boolean(buyNowProductId && buyNowStoreId);
+
   const [items, setItems] = useState<CartItem[] | null>(null);
   const [addresses, setAddresses] = useState<UserAddress[] | null>(null);
   const [addressId, setAddressId] = useState<number | null>(null);
   const [shippingOptions, setShippingOptions] = useState<ShippingOption[] | null>(null);
   const [selected, setSelected] = useState<ShippingOption | null>(null);
-  const [paymentMethod, setPaymentMethod] = useState<"manual_transfer" | "midtrans">("manual_transfer");
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    api<CartItem[]>("/api/cart").then(setItems).catch(() => setItems([]));
+    if (isBuyNow) {
+      api<ProductWithStock>(`/api/products/${buyNowProductId}`, {
+        auth: false,
+        query: { store_id: buyNowStoreId ?? undefined },
+      })
+        .then((res) =>
+          setItems([
+            {
+              id: 0,
+              product_id: res.product.id,
+              store_id: res.store_id,
+              quantity: buyNowQty,
+              product: res.product,
+            },
+          ]),
+        )
+        .catch(() => setItems([]));
+    } else {
+      api<CartItem[]>("/api/cart").then(setItems).catch(() => setItems([]));
+    }
+
     api<UserAddress[]>("/api/addresses")
       .then((res) => {
         setAddresses(res);
@@ -40,7 +66,7 @@ function CheckoutContent() {
         if (primary) setAddressId(primary.id);
       })
       .catch(() => setAddresses([]));
-  }, []);
+  }, [isBuyNow, buyNowProductId, buyNowStoreId, buyNowQty]);
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -69,15 +95,26 @@ function CheckoutContent() {
     setStatus("loading");
     setMessage(null);
     try {
-      const order = await api<Order>("/api/orders", {
-        method: "POST",
-        body: {
-          address_id: addressId,
-          payment_method: paymentMethod,
-          shipping_courier: selected?.courier,
-          shipping_service: selected?.service,
-        },
-      });
+      const order = isBuyNow
+        ? await api<Order>("/api/orders/buy-now", {
+            method: "POST",
+            body: {
+              product_id: Number(buyNowProductId),
+              store_id: Number(buyNowStoreId),
+              quantity: buyNowQty,
+              address_id: addressId,
+              shipping_courier: selected?.courier,
+              shipping_service: selected?.service,
+            },
+          })
+        : await api<Order>("/api/orders", {
+            method: "POST",
+            body: {
+              address_id: addressId,
+              shipping_courier: selected?.courier,
+              shipping_service: selected?.service,
+            },
+          });
       router.push(`/orders/${order.id}`);
     } catch (err) {
       setStatus("error");
@@ -88,7 +125,9 @@ function CheckoutContent() {
   if (items && items.length === 0) {
     return (
       <div className="mx-auto max-w-2xl px-4 py-16 text-center">
-        <p className="text-foreground/60">Keranjang Anda kosong.</p>
+        <p className="text-foreground/60">
+          {isBuyNow ? "Produk tidak ditemukan." : "Keranjang Anda kosong."}
+        </p>
         <Link href="/products" className="mt-3 inline-block text-sm text-brand-dark hover:underline">
           Mulai belanja →
         </Link>
@@ -101,6 +140,14 @@ function CheckoutContent() {
       <h1 className="text-2xl font-bold">Checkout</h1>
 
       <div className="mt-6 flex flex-col gap-6">
+        {isBuyNow && items && items[0] && (
+          <Section title="Produk">
+            <p className="text-sm">
+              {items[0].product?.name} <span className="text-foreground/60">x{items[0].quantity}</span>
+            </p>
+          </Section>
+        )}
+
         <Section title="Alamat Pengiriman">
           {addresses && addresses.length === 0 && (
             <div className="flex items-center justify-between">
@@ -179,49 +226,9 @@ function CheckoutContent() {
         </Section>
 
         <Section title="Metode Pembayaran">
-          <div className="flex flex-col gap-2">
-            <label
-              className={`flex cursor-pointer items-start gap-3 rounded-md border p-3 text-sm ${
-                paymentMethod === "manual_transfer" ? "border-brand bg-brand-light/40" : "border-border"
-              }`}
-            >
-              <input
-                type="radio"
-                name="payment_method"
-                checked={paymentMethod === "manual_transfer"}
-                onChange={() => setPaymentMethod("manual_transfer")}
-                className="mt-1"
-              />
-              <span>
-                <span className="font-medium">Transfer Manual</span>
-                <br />
-                <span className="text-foreground/60">Unggah bukti bayar setelah pesanan dibuat.</span>
-              </span>
-            </label>
-
-            {MIDTRANS_ENABLED && (
-              <label
-                className={`flex cursor-pointer items-start gap-3 rounded-md border p-3 text-sm ${
-                  paymentMethod === "midtrans" ? "border-brand bg-brand-light/40" : "border-border"
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="payment_method"
-                  checked={paymentMethod === "midtrans"}
-                  onChange={() => setPaymentMethod("midtrans")}
-                  className="mt-1"
-                />
-                <span>
-                  <span className="font-medium">Bayar Online</span>
-                  <br />
-                  <span className="text-foreground/60">
-                    Kartu kredit, transfer VA, e-wallet, atau QRIS via Midtrans.
-                  </span>
-                </span>
-              </label>
-            )}
-          </div>
+          <p className="text-sm text-foreground/70">
+            Bayar Online via Midtrans — kartu kredit, transfer VA, e-wallet, atau QRIS.
+          </p>
         </Section>
 
         <Section title="Ringkasan Pesanan">

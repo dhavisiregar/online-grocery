@@ -8,7 +8,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"online-grocery/backend/internal/config"
 	"online-grocery/backend/internal/middleware"
 	"online-grocery/backend/internal/models"
 	"online-grocery/backend/internal/repository"
@@ -16,21 +15,17 @@ import (
 	"online-grocery/backend/internal/utils"
 )
 
-var allowedProofExt = []string{".jpg", ".jpeg", ".png"}
-
 type OrderHandler struct {
 	orders *service.OrderService
 	stores *repository.StoreRepository
-	cfg    *config.Config
 }
 
-func NewOrderHandler(orders *service.OrderService, stores *repository.StoreRepository, cfg *config.Config) *OrderHandler {
-	return &OrderHandler{orders: orders, stores: stores, cfg: cfg}
+func NewOrderHandler(orders *service.OrderService, stores *repository.StoreRepository) *OrderHandler {
+	return &OrderHandler{orders: orders, stores: stores}
 }
 
 type createOrderRequest struct {
 	AddressID       uint   `json:"address_id" binding:"required"`
-	PaymentMethod   string `json:"payment_method" binding:"required"`
 	ShippingCourier string `json:"shipping_courier"`
 	ShippingService string `json:"shipping_service"`
 }
@@ -42,7 +37,37 @@ func (h *OrderHandler) Create(c *gin.Context) {
 		return
 	}
 
-	order, err := h.orders.Create(currentUserID(c), req.AddressID, req.PaymentMethod, req.ShippingCourier, req.ShippingService)
+	order, err := h.orders.Create(currentUserID(c), req.AddressID, req.ShippingCourier, req.ShippingService)
+	if err != nil {
+		utils.Error(c, orderErrorStatus(err), err.Error())
+		return
+	}
+	utils.Success(c, http.StatusCreated, "order created", order)
+}
+
+type buyNowRequest struct {
+	ProductID       uint   `json:"product_id" binding:"required"`
+	StoreID         uint   `json:"store_id" binding:"required"`
+	Quantity        int    `json:"quantity" binding:"required,min=1"`
+	AddressID       uint   `json:"address_id" binding:"required"`
+	ShippingCourier string `json:"shipping_courier"`
+	ShippingService string `json:"shipping_service"`
+}
+
+// CreateBuyNow checks out a single product directly — the "Beli Sekarang"
+// path that skips the cart entirely, so it doesn't touch whatever the
+// shopper already has sitting in their real cart.
+func (h *OrderHandler) CreateBuyNow(c *gin.Context) {
+	var req buyNowRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	order, err := h.orders.CreateBuyNow(
+		currentUserID(c), req.ProductID, req.StoreID, req.Quantity,
+		req.AddressID, req.ShippingCourier, req.ShippingService,
+	)
 	if err != nil {
 		utils.Error(c, orderErrorStatus(err), err.Error())
 		return
@@ -73,26 +98,6 @@ func (h *OrderHandler) Detail(c *gin.Context) {
 		return
 	}
 	utils.Success(c, http.StatusOK, "ok", order)
-}
-
-func (h *OrderHandler) UploadPaymentProof(c *gin.Context) {
-	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err != nil {
-		utils.Error(c, http.StatusBadRequest, "invalid order id")
-		return
-	}
-
-	url, err := utils.SaveUploadedFile(c, "proof", h.cfg.UploadDir, allowedProofExt, h.cfg.MaxUploadSizeMB)
-	if err != nil {
-		utils.Error(c, http.StatusBadRequest, uploadErrorMessage(err))
-		return
-	}
-
-	if err := h.orders.UploadPaymentProof(currentUserID(c), uint(id), url); err != nil {
-		utils.Error(c, orderErrorStatus(err), err.Error())
-		return
-	}
-	utils.Success(c, http.StatusOK, "payment proof uploaded", gin.H{"payment_proof_url": url})
 }
 
 func (h *OrderHandler) Cancel(c *gin.Context) {
@@ -303,8 +308,7 @@ func (h *OrderHandler) saveAdminTransition(order *models.Order, notes string) er
 func orderErrorStatus(err error) int {
 	switch {
 	case errors.Is(err, service.ErrEmptyCart), errors.Is(err, service.ErrOutOfStock),
-		errors.Is(err, service.ErrUnsupportedPayment), errors.Is(err, service.ErrInvalidTransition),
-		errors.Is(err, service.ErrPaymentWindowPassed), errors.Is(err, service.ErrNotMidtransOrder),
+		errors.Is(err, service.ErrInvalidTransition), errors.Is(err, service.ErrNotMidtransOrder),
 		errors.Is(err, service.ErrOutOfRange):
 		return http.StatusUnprocessableEntity
 	case errors.Is(err, service.ErrAddressNotOwned), errors.Is(err, service.ErrOrderNotOwned):

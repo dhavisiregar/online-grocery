@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 import { api, ApiError } from "@/lib/api";
 import type { User } from "@/types";
@@ -15,6 +16,7 @@ interface Props {
 }
 
 export function AddToCartPanel({ productId, storeId, stock, user, onAdded }: Props) {
+  const router = useRouter();
   const [qty, setQty] = useState(1);
   const [status, setStatus] = useState<"idle" | "loading" | "error" | "done">("idle");
   const [message, setMessage] = useState<string | null>(null);
@@ -53,17 +55,28 @@ export function AddToCartPanel({ productId, storeId, stock, user, onAdded }: Pro
     }
   }
 
+  function handleBuyNow() {
+    router.push(`/checkout?product_id=${productId}&store_id=${storeId}&quantity=${qty}`);
+  }
+
   return (
     <div className="flex flex-col gap-3">
+      <QuantityStepper qty={qty} max={stock} onChange={setQty} />
       <div className="flex items-center gap-3">
-        <QuantityStepper qty={qty} max={stock} onChange={setQty} />
         <button
           type="button"
           onClick={handleAdd}
           disabled={status === "loading"}
-          className="flex-1 rounded-md bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark disabled:opacity-60"
+          className="flex-1 rounded-md border border-brand px-4 py-2 text-sm font-medium text-brand-dark hover:bg-brand-light disabled:opacity-60"
         >
           {status === "loading" ? "Menambahkan…" : "Tambah ke Keranjang"}
+        </button>
+        <button
+          type="button"
+          onClick={handleBuyNow}
+          className="flex-1 rounded-md bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark"
+        >
+          Beli Sekarang
         </button>
       </div>
       {status === "done" && <p className="text-sm text-brand-dark">Ditambahkan ke keranjang.</p>}

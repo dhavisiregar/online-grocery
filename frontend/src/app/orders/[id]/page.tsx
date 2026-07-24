@@ -7,7 +7,6 @@ import { api, ApiError } from "@/lib/api";
 import { RequireAuth } from "@/components/auth/RequireAuth";
 import { formatIDR } from "@/lib/format";
 import { ORDER_STATUS_LABEL, type Order } from "@/types";
-import { PaymentProofUpload } from "@/components/order/PaymentProofUpload";
 import { MidtransPayButton } from "@/components/order/MidtransPayButton";
 
 export default function OrderDetailPage() {
@@ -82,11 +81,7 @@ function OrderDetailContent() {
 
       {order.status === "waiting_payment" && (
         <div className="mt-6 flex flex-col gap-3">
-          {order.payment_method === "midtrans" ? (
-            <MidtransPayButton orderId={params.id} onSettled={load} />
-          ) : (
-            <PaymentProofUpload orderId={params.id} onUploaded={load} />
-          )}
+          <MidtransPayButton orderId={params.id} onSettled={load} />
           <button
             type="button"
             onClick={() => runAction("cancel")}

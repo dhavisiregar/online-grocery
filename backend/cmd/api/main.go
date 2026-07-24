@@ -90,7 +90,7 @@ func buildServices(db *gorm.DB, r *repositories, cfg *config.Config) *services {
 		auth:       service.NewAuthService(r.users, mailer, cfg),
 		stores:     storeSvc,
 		cart:       service.NewCartService(r.carts, r.products, r.users),
-		order:      service.NewOrderService(db, r.orders, r.carts, r.addresses, r.users, storeSvc, shippingSvc, midtransSvc),
+		order:      service.NewOrderService(db, r.orders, r.carts, r.addresses, r.users, r.products, storeSvc, shippingSvc, midtransSvc),
 		rajaOngkir: rajaOngkirSvc,
 		geocode:    geocodeSvc,
 		shipping:   shippingSvc,
@@ -109,7 +109,7 @@ func buildHandlers(r *repositories, s *services, cfg *config.Config) *routes.Han
 		Inventory: handlers.NewInventoryHandler(r.inventory, r.stores),
 		Discount:  handlers.NewDiscountHandler(),
 		Cart:      handlers.NewCartHandler(s.cart),
-		Order:     handlers.NewOrderHandler(s.order, r.stores, cfg),
+		Order:     handlers.NewOrderHandler(s.order, r.stores),
 		Report:    handlers.NewReportHandler(),
 		Location:  handlers.NewLocationHandler(s.rajaOngkir, s.geocode),
 	}

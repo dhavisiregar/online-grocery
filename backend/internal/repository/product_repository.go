@@ -77,8 +77,16 @@ func (r *ProductRepository) Create(product *models.Product) error {
 	return r.db.Create(product).Error
 }
 
+// Update whitelists exactly the scalar columns being changed. product is
+// normally loaded via FindByID, which preloads Category/Images — a plain
+// Save() would see those populated (but stale) associations and re-save
+// them, which for a belongs-to Category silently resets category_id back
+// to whatever it was before the edit. Select+Updates never touches
+// associations, so this can't happen regardless of what's preloaded.
 func (r *ProductRepository) Update(product *models.Product) error {
-	return r.db.Save(product).Error
+	return r.db.Model(product).
+		Select("name", "description", "category_id", "price", "weight_grams").
+		Updates(product).Error
 }
 
 func (r *ProductRepository) Delete(id uint) error {
