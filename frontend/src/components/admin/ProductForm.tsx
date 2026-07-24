@@ -6,7 +6,7 @@ import { FormField, inputClass, primaryButtonClass } from "@/components/auth/Aut
 import { api, getToken } from "@/lib/api";
 import type { Category, Product } from "@/types";
 
-const ALLOWED_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/gif"];
+const ALLOWED_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp"];
 const MAX_SIZE_BYTES = 1 * 1024 * 1024;
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
 
@@ -37,7 +37,7 @@ export function ProductForm({
     const files = Array.from(e.target.files ?? []);
     for (const file of files) {
       if (!ALLOWED_TYPES.includes(file.type)) {
-        setMessage(`Format ${file.name} tidak didukung (harus .jpg/.jpeg/.png/.gif)`);
+        setMessage(`Format ${file.name} tidak didukung (harus .jpg/.jpeg/.png/.gif/.webp)`);
         return;
       }
       if (file.size > MAX_SIZE_BYTES) {
@@ -131,9 +131,14 @@ export function ProductForm({
         />
       </FormField>
       <FormField label={initial ? "Tambah Foto Produk (opsional)" : "Foto Produk"}>
-        <input type="file" multiple accept="image/jpeg,image/jpg,image/png,image/gif" onChange={handleFiles} />
+        <input
+          type="file"
+          multiple
+          accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+          onChange={handleFiles}
+        />
       </FormField>
-      <p className="text-xs text-foreground/50">Format .jpg/.jpeg/.png/.gif, maksimum 1MB per foto.</p>
+      <p className="text-xs text-foreground/50">Format .jpg/.jpeg/.png/.gif/.webp, maksimum 1MB per foto.</p>
 
       {message && <p className={`text-sm ${status === "error" ? "text-red-600" : "text-foreground/60"}`}>{message}</p>}
 

@@ -15,7 +15,7 @@ import (
 	"online-grocery/backend/internal/utils"
 )
 
-var allowedImageExt = []string{".jpg", ".jpeg", ".png", ".gif"}
+var allowedImageExt = []string{".jpg", ".jpeg", ".png", ".gif", ".webp"}
 
 type ProductHandler struct {
 	products *repository.ProductRepository
@@ -156,7 +156,7 @@ type productRequest struct {
 
 // Create/Update are multipart so product photos can be attached in the
 // same request; unique-name and image extension/size validation both
-// apply (.jpg/.jpeg/.png/.gif, <=1MB each, per spec).
+// apply (.jpg/.jpeg/.png/.gif/.webp, <=1MB each).
 func (h *ProductHandler) Create(c *gin.Context) {
 	var req productRequest
 	if err := c.ShouldBind(&req); err != nil {
