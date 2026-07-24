@@ -1,0 +1,12 @@
+# OS
+.DS_Store
+
+# Backend (Go)
+backend/.env
+backend/uploads/
+backend/*.exe
+/backend/api
+/backend/tmp/
+
+# Frontend (Next.js) — also see frontend/.gitignore
+frontend/.env.local
