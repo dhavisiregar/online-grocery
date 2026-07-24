@@ -1,9 +1,9 @@
 # FreshMart — Online Grocery Web App
 
-Final project: a multi-branch grocery e-commerce app. Shoppers see products and
-stock from their nearest store branch (resolved from device geolocation);
-store admins manage inventory, discounts, and orders per branch; a super
-admin manages stores and store admin accounts.
+A multi-branch grocery e-commerce app. Shoppers see products and stock from
+their nearest store branch (resolved from device geolocation); store admins
+manage inventory, discounts, and orders per branch; a super admin manages
+stores and store admin accounts.
 
 ## Stack
 

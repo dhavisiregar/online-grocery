@@ -43,7 +43,7 @@ export function Footer() {
       </div>
 
       <div className="border-t border-border px-4 py-4 text-center text-xs text-foreground/60">
-        © {new Date().getFullYear()} FreshMart. Final project submission — Online Grocery Web App.
+        © {new Date().getFullYear()} FreshMart. Online Grocery Web App.
       </div>
     </footer>
   );
