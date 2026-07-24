@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 
 import { FormField, inputClass, primaryButtonClass } from "@/components/auth/AuthCard";
+import { PasswordInput } from "@/components/auth/PasswordInput";
 import type { User } from "@/types";
 
 export interface StoreAdminFormValues {
@@ -46,13 +47,11 @@ export function StoreAdminForm({
         />
       </FormField>
       <FormField label={initial ? "Password Baru (opsional)" : "Password"}>
-        <input
+        <PasswordInput
           required={!initial}
           minLength={8}
-          type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className={inputClass}
         />
       </FormField>
       {error && <p className="text-sm text-red-600">{error}</p>}

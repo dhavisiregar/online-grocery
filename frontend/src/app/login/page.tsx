@@ -12,6 +12,7 @@ import {
   inputClass,
   primaryButtonClass,
 } from "@/components/auth/AuthCard";
+import { PasswordInput } from "@/components/auth/PasswordInput";
 
 export default function LoginPage() {
   return (
@@ -58,13 +59,7 @@ function LoginForm() {
           />
         </FormField>
         <FormField label="Password">
-          <input
-            required
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className={inputClass}
-          />
+          <PasswordInput required value={password} onChange={(e) => setPassword(e.target.value)} />
         </FormField>
 
         <div className="text-right text-sm">

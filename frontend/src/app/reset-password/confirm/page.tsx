@@ -5,7 +5,8 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
 import { api, ApiError } from "@/lib/api";
-import { AuthCard, FormField, inputClass, primaryButtonClass } from "@/components/auth/AuthCard";
+import { AuthCard, FormField, primaryButtonClass } from "@/components/auth/AuthCard";
+import { PasswordInput } from "@/components/auth/PasswordInput";
 
 export default function ConfirmResetPasswordPage() {
   return (
@@ -68,23 +69,19 @@ function ConfirmResetPasswordForm() {
     <AuthCard title="Buat Password Baru">
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <FormField label="Password Baru">
-          <input
+          <PasswordInput
             required
             minLength={8}
-            type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className={inputClass}
           />
         </FormField>
         <FormField label="Konfirmasi Password">
-          <input
+          <PasswordInput
             required
             minLength={8}
-            type="password"
             value={confirm}
             onChange={(e) => setConfirm(e.target.value)}
-            className={inputClass}
           />
         </FormField>
         {status === "error" && message && <p className="text-sm text-red-600">{message}</p>}
