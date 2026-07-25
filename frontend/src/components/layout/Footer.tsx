@@ -2,16 +2,16 @@ import Link from "next/link";
 
 export function Footer() {
   return (
-    <footer className="mt-16 border-t border-border bg-surface">
-      <div className="mx-auto grid max-w-6xl gap-8 px-4 py-10 sm:grid-cols-2 md:grid-cols-4">
+    <footer className="mt-20 border-t border-border bg-surface">
+      <div className="mx-auto grid max-w-6xl gap-10 px-4 py-12 sm:grid-cols-2 md:grid-cols-4">
         <div>
-          <div className="flex items-center gap-2 text-lg font-bold text-brand-dark">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand text-white">
+          <div className="flex items-center gap-2 text-lg font-bold tracking-tight text-brand-dark">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand text-white shadow-soft">
               🛒
             </span>
             GrocerGo
           </div>
-          <p className="mt-3 text-sm text-foreground/70">
+          <p className="mt-3 text-sm leading-relaxed text-foreground/70">
             Belanja kebutuhan harian dari toko terdekat, diantar sampai ke rumah
             Anda.
           </p>
@@ -45,7 +45,7 @@ export function Footer() {
         </div>
       </div>
 
-      <div className="border-t border-border px-4 py-4 text-center text-xs text-foreground/60">
+      <div className="border-t border-border px-4 py-5 text-center text-xs text-foreground/50">
         © {new Date().getFullYear()} GrocerGo. Online Grocery Web App.
       </div>
     </footer>
@@ -65,7 +65,7 @@ function FooterColumn({
       <ul className="mt-3 space-y-2 text-sm text-foreground/70">
         {links.map((link) => (
           <li key={link.href}>
-            <Link href={link.href} className="hover:text-brand-dark">
+            <Link href={link.href} className="transition-colors hover:text-brand-dark">
               {link.label}
             </Link>
           </li>

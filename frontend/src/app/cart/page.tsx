@@ -3,9 +3,10 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
-import { api, ApiError } from "@/lib/api";
+import { api, ApiError, resolveUploadUrl } from "@/lib/api";
 import { useCart } from "@/contexts/CartContext";
 import { RequireAuth } from "@/components/auth/RequireAuth";
+import { QuantityStepper } from "@/components/ui/QuantityStepper";
 import { formatIDR } from "@/lib/format";
 import type { CartItem } from "@/types";
 
@@ -51,42 +52,46 @@ function CartContent() {
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8">
-      <h1 className="text-2xl font-bold">Keranjang Belanja</h1>
+      <h1 className="text-2xl font-bold tracking-tight">Keranjang Belanja</h1>
 
-      {loading && <p className="mt-6 text-sm text-foreground/60">Memuat…</p>}
+      {loading && <CartSkeleton />}
 
       {!loading && error && (
-        <div className="mt-6 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-          {error}
-        </div>
+        <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">{error}</div>
       )}
 
       {!loading && !error && items && items.length === 0 && (
-        <div className="mt-10 text-center">
+        <div className="mt-16 flex flex-col items-center gap-2 text-center">
+          <span aria-hidden className="text-4xl">
+            🛒
+          </span>
           <p className="text-foreground/60">Keranjang Anda masih kosong.</p>
-          <Link href="/products" className="mt-3 inline-block text-sm text-brand-dark hover:underline">
-            Mulai belanja →
+          <Link
+            href="/products"
+            className="mt-1 inline-flex items-center gap-1 text-sm font-medium text-brand-dark hover:underline"
+          >
+            Mulai belanja <span aria-hidden>→</span>
           </Link>
         </div>
       )}
 
       {!loading && !error && items && items.length > 0 && (
         <div className="mt-6 grid gap-8 md:grid-cols-3">
-          <div className="flex flex-col gap-4 md:col-span-2">
+          <div className="flex flex-col gap-3 md:col-span-2">
             {items.map((item) => (
               <CartRow key={item.id} item={item} onQty={updateQty} onRemove={remove} />
             ))}
           </div>
 
-          <aside className="h-fit rounded-xl border border-border p-6">
+          <aside className="h-fit rounded-2xl border border-border bg-background p-6 shadow-soft md:sticky md:top-20">
             <h2 className="font-semibold">Ringkasan</h2>
             <div className="mt-4 flex justify-between text-sm">
-              <span className="text-foreground/60">Subtotal</span>
-              <span className="font-medium">{formatIDR(subtotal)}</span>
+              <span className="text-foreground/60">Subtotal ({items.length} produk)</span>
+              <span className="font-semibold">{formatIDR(subtotal)}</span>
             </div>
             <Link
               href="/checkout"
-              className="mt-4 block rounded-md bg-brand px-4 py-2 text-center text-sm font-medium text-white hover:bg-brand-dark"
+              className="mt-5 flex items-center justify-center rounded-lg bg-brand px-4 py-2.5 text-center text-sm font-semibold text-white shadow-soft transition-all hover:-translate-y-0.5 hover:bg-brand-dark hover:shadow-md active:translate-y-0"
             >
               Checkout
             </Link>
@@ -106,23 +111,44 @@ function CartRow({
   onQty: (id: number, qty: number) => void;
   onRemove: (id: number) => void;
 }) {
+  const image = resolveUploadUrl(item.product?.images?.[0]?.image_url);
+
   return (
-    <div className="flex items-center gap-4 rounded-xl border border-border p-4">
-      <div className="flex h-16 w-16 items-center justify-center rounded-lg bg-surface text-2xl">🛒</div>
-      <div className="flex-1">
-        <p className="text-sm font-medium">{item.product?.name ?? `Produk #${item.product_id}`}</p>
+    <div className="flex items-center gap-4 rounded-2xl border border-border bg-background p-4 shadow-soft">
+      <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-surface text-2xl">
+        {image ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={image} alt={item.product?.name ?? ""} className="h-full w-full object-cover" />
+        ) : (
+          <span aria-hidden>🛒</span>
+        )}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-medium">{item.product?.name ?? `Produk #${item.product_id}`}</p>
         {item.product && <p className="text-sm text-foreground/60">{formatIDR(item.product.price)}</p>}
       </div>
-      <input
-        type="number"
-        min={1}
-        value={item.quantity}
-        onChange={(e) => onQty(item.id, Number(e.target.value))}
-        className="w-16 rounded-md border border-border px-2 py-1 text-sm"
-      />
-      <button type="button" onClick={() => onRemove(item.id)} className="text-sm text-red-600">
-        Hapus
+      <QuantityStepper qty={item.quantity} max={99} onChange={(n) => onQty(item.id, n)} />
+      <button
+        type="button"
+        onClick={() => onRemove(item.id)}
+        aria-label="Hapus dari keranjang"
+        className="rounded-lg p-2 text-foreground/40 transition-colors hover:bg-red-50 hover:text-red-600"
+      >
+        🗑️
       </button>
+    </div>
+  );
+}
+
+function CartSkeleton() {
+  return (
+    <div className="mt-6 grid gap-8 md:grid-cols-3">
+      <div className="flex flex-col gap-3 md:col-span-2">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="h-24 animate-pulse rounded-2xl border border-border bg-surface" />
+        ))}
+      </div>
+      <div className="h-40 animate-pulse rounded-2xl border border-border bg-surface" />
     </div>
   );
 }

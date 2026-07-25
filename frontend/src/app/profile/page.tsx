@@ -24,26 +24,26 @@ function ProfileContent() {
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
-      <h1 className="text-2xl font-bold">Profil Saya</h1>
+      <h1 className="text-2xl font-bold tracking-tight">Profil Saya</h1>
 
       {!user.is_verified && <VerifyNotice email={user.email} />}
 
-      <div className="mt-6 rounded-xl border border-border p-6">
+      <div className="mt-6 rounded-2xl border border-border bg-background p-6 shadow-soft">
         <div className="flex items-center gap-4">
-          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-brand-light text-2xl">
+          <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-brand-light text-2xl shadow-soft">
             {user.profile_photo_url ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={resolveUploadUrl(user.profile_photo_url)}
                 alt={user.name}
-                className="h-16 w-16 rounded-full object-cover"
+                className="h-16 w-16 object-cover"
               />
             ) : (
               "🙂"
             )}
           </div>
           <div>
-            <p className="font-semibold">{user.name}</p>
+            <p className="text-lg font-semibold">{user.name}</p>
             <p className="text-sm text-foreground/60">{user.email}</p>
           </div>
         </div>
@@ -51,11 +51,11 @@ function ProfileContent() {
         <dl className="mt-6 grid grid-cols-2 gap-4 text-sm">
           <div>
             <dt className="text-foreground/60">Kode Referral</dt>
-            <dd className="font-medium">{user.referral_code}</dd>
+            <dd className="mt-0.5 font-mono font-semibold">{user.referral_code}</dd>
           </div>
           <div>
             <dt className="text-foreground/60">Status</dt>
-            <dd className="font-medium">{user.is_verified ? "Terverifikasi" : "Belum verifikasi"}</dd>
+            <dd className="mt-0.5 font-medium">{user.is_verified ? "Terverifikasi" : "Belum verifikasi"}</dd>
           </div>
         </dl>
       </div>
@@ -63,13 +63,13 @@ function ProfileContent() {
       <div className="mt-4 flex flex-wrap gap-3">
         <Link
           href="/addresses"
-          className="rounded-md border border-border px-4 py-2 text-sm font-medium hover:bg-surface"
+          className="rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium transition-colors hover:bg-surface"
         >
           Kelola Alamat
         </Link>
         <Link
           href="/orders"
-          className="rounded-md border border-border px-4 py-2 text-sm font-medium hover:bg-surface"
+          className="rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium transition-colors hover:bg-surface"
         >
           Pesanan Saya
         </Link>
@@ -115,7 +115,7 @@ function VoucherWallet() {
   }
 
   return (
-    <div className="mt-6 rounded-xl border border-border p-6">
+    <div className="mt-6 rounded-2xl border border-border bg-background p-6 shadow-soft">
       <h2 className="font-semibold">Voucher Saya</h2>
 
       <form onSubmit={handleClaim} className="mt-3 flex gap-2">
@@ -126,7 +126,11 @@ function VoucherWallet() {
           placeholder="Masukkan kode promo"
           className={`${inputClass} flex-1`}
         />
-        <button type="submit" disabled={status === "loading"} className="rounded-md bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark disabled:opacity-60">
+        <button
+          type="submit"
+          disabled={status === "loading"}
+          className="shrink-0 rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white shadow-soft transition-all hover:-translate-y-0.5 hover:bg-brand-dark hover:shadow-md active:translate-y-0 disabled:pointer-events-none disabled:opacity-60"
+        >
           {status === "loading" ? "Mengklaim…" : "Klaim"}
         </button>
       </form>
@@ -138,9 +142,12 @@ function VoucherWallet() {
         {vouchers === null && <p className="text-sm text-foreground/60">Memuat…</p>}
         {vouchers?.length === 0 && <p className="text-sm text-foreground/60">Belum ada voucher tersimpan.</p>}
         {vouchers?.map((uv) => (
-          <div key={uv.id} className="flex items-center justify-between rounded-md border border-border p-3 text-sm">
+          <div
+            key={uv.id}
+            className="flex items-center justify-between rounded-xl border border-dashed border-border p-3.5 text-sm transition-colors hover:bg-surface"
+          >
             <div>
-              <p className="font-mono font-medium">{uv.voucher.code}</p>
+              <p className="font-mono font-semibold text-brand-dark">{uv.voucher.code}</p>
               <p className="text-foreground/60">
                 {VOUCHER_TYPE_LABEL[uv.voucher.type]} —{" "}
                 {uv.voucher.value_type === "percentage" ? `${uv.voucher.value}%` : formatIDR(uv.voucher.value)}
@@ -164,9 +171,9 @@ function VerifyNotice({ email }: { email: string }) {
     setSent(true);
   }
   return (
-    <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+    <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
       <p>Email Anda belum terverifikasi. Beberapa fitur seperti belanja dinonaktifkan.</p>
-      <button type="button" onClick={resend} className="mt-2 font-medium underline">
+      <button type="button" onClick={resend} className="mt-2 font-medium underline underline-offset-2">
         {sent ? "Email verifikasi terkirim" : "Kirim ulang email verifikasi"}
       </button>
     </div>
@@ -203,7 +210,7 @@ function ProfileForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="mt-6 flex flex-col gap-4 rounded-xl border border-border p-6">
+    <form onSubmit={handleSubmit} className="mt-6 flex flex-col gap-4 rounded-2xl border border-border bg-background shadow-soft p-6">
       <h2 className="font-semibold">Perbarui Data Diri</h2>
       <FormField label="Nama Lengkap">
         <input value={name} onChange={(e) => setName(e.target.value)} className={inputClass} />

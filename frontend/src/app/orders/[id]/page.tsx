@@ -5,8 +5,10 @@ import { useParams } from "next/navigation";
 
 import { api, ApiError } from "@/lib/api";
 import { RequireAuth } from "@/components/auth/RequireAuth";
+import { PageLoader } from "@/components/ui/Spinner";
+import { OrderStatusBadge } from "@/components/ui/StatusBadge";
 import { formatIDR } from "@/lib/format";
-import { ORDER_STATUS_LABEL, type Order } from "@/types";
+import type { Order } from "@/types";
 import { MidtransPayButton } from "@/components/order/MidtransPayButton";
 
 export default function OrderDetailPage() {
@@ -47,23 +49,43 @@ function OrderDetailContent() {
     return <div className="mx-auto max-w-2xl px-4 py-16 text-center text-foreground/60">{error}</div>;
   }
   if (!order) {
-    return <div className="mx-auto max-w-2xl px-4 py-16 text-center text-foreground/60">Memuat…</div>;
+    return <PageLoader />;
   }
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
-      <h1 className="text-2xl font-bold">{order.order_number}</h1>
-      <p className="mt-1 text-sm text-brand-dark">{ORDER_STATUS_LABEL[order.status]}</p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h1 className="text-2xl font-bold tracking-tight">{order.order_number}</h1>
+        <OrderStatusBadge status={order.status} />
+      </div>
 
-      <div className="mt-6 rounded-xl border border-border p-6">
+      {order.items && order.items.length > 0 && (
+        <div className="mt-6 flex flex-col divide-y divide-border overflow-hidden rounded-2xl border border-border bg-background shadow-soft">
+          {order.items.map((item) => (
+            <div key={item.id} className="flex items-center justify-between gap-4 p-4 text-sm">
+              <div>
+                <p className="font-medium">{item.product_name}</p>
+                <p className="text-foreground/60">
+                  {item.quantity} × {formatIDR(item.price)}
+                </p>
+              </div>
+              <span className="font-semibold">{formatIDR(item.subtotal)}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="mt-4 rounded-2xl border border-border bg-background p-6 shadow-soft">
         <div className="flex justify-between text-sm">
           <span className="text-foreground/60">Subtotal</span>
           <span>{formatIDR(order.subtotal)}</span>
         </div>
-        <div className="flex justify-between text-sm">
-          <span className="text-foreground/60">Diskon</span>
-          <span>-{formatIDR(order.discount_amount)}</span>
-        </div>
+        {order.discount_amount > 0 && (
+          <div className="flex justify-between text-sm">
+            <span className="text-foreground/60">Diskon</span>
+            <span className="text-red-600">-{formatIDR(order.discount_amount)}</span>
+          </div>
+        )}
         <div className="flex justify-between text-sm">
           <span className="text-foreground/60">
             Ongkos Kirim
@@ -85,7 +107,7 @@ function OrderDetailContent() {
           <button
             type="button"
             onClick={() => runAction("cancel")}
-            className="text-sm text-red-600 underline"
+            className="text-sm font-medium text-red-600 underline-offset-2 hover:underline"
           >
             Batalkan Pesanan
           </button>
@@ -96,7 +118,7 @@ function OrderDetailContent() {
         <button
           type="button"
           onClick={() => runAction("confirm")}
-          className="mt-6 rounded-md bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark"
+          className="mt-6 w-full rounded-lg bg-brand px-4 py-2.5 text-sm font-semibold text-white shadow-soft transition-all hover:-translate-y-0.5 hover:bg-brand-dark hover:shadow-md active:translate-y-0"
         >
           Konfirmasi Pesanan Diterima
         </button>

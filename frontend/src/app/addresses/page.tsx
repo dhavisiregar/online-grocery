@@ -65,12 +65,12 @@ function AddressesContent() {
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Alamat Saya</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Alamat Saya</h1>
         {editing === null && (
           <button
             type="button"
             onClick={() => setEditing("new")}
-            className="rounded-md bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark"
+            className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white shadow-soft transition-all hover:-translate-y-0.5 hover:bg-brand-dark hover:shadow-md active:translate-y-0"
           >
             + Tambah Alamat
           </button>
@@ -90,13 +90,16 @@ function AddressesContent() {
       )}
 
       {error && (
-        <p className="mt-6 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">{error}</p>
+        <p className="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">{error}</p>
       )}
 
       {!error && addresses && addresses.length === 0 && editing === null && (
-        <p className="mt-10 text-center text-sm text-foreground/60">
-          Anda belum memiliki alamat tersimpan.
-        </p>
+        <div className="mt-16 flex flex-col items-center gap-2 text-center">
+          <span aria-hidden className="text-4xl">
+            📍
+          </span>
+          <p className="text-sm text-foreground/60">Anda belum memiliki alamat tersimpan.</p>
+        </div>
       )}
 
       {addresses && addresses.length > 0 && (

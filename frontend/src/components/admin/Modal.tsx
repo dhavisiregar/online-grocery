@@ -10,15 +10,21 @@ export function Modal({
   children: React.ReactNode;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4">
-      <div className="max-h-[90vh] w-full overflow-y-auto rounded-t-xl bg-background p-6 shadow-lg sm:max-w-lg sm:rounded-xl">
+    <div
+      className="animate-fade-in fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 backdrop-blur-sm sm:items-center sm:p-4"
+      onClick={onClose}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="animate-slide-up max-h-[90vh] w-full overflow-y-auto rounded-t-2xl border border-border bg-background p-6 shadow-soft-lg sm:max-w-lg sm:rounded-2xl"
+      >
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">{title}</h2>
+          <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
           <button
             type="button"
             onClick={onClose}
             aria-label="Tutup"
-            className="rounded-md p-1 text-foreground/50 hover:bg-surface hover:text-foreground"
+            className="rounded-full p-1.5 text-foreground/50 transition-colors hover:bg-surface hover:text-foreground"
           >
             ✕
           </button>

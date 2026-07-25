@@ -101,7 +101,7 @@ export function MidtransPayButton({
         type="button"
         onClick={handlePay}
         disabled={status === "loading"}
-        className="rounded-md bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark disabled:opacity-60"
+        className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white shadow-soft transition-all hover:-translate-y-0.5 hover:bg-brand-dark hover:shadow-md active:translate-y-0 disabled:opacity-60"
       >
         {status === "loading" ? "Membuka pembayaran…" : "Bayar Sekarang"}
       </button>

@@ -65,7 +65,7 @@ export function ProductGrid({ limit = 12, showFilters = false }: { limit?: numbe
 
   if (error) {
     return (
-      <div className="rounded-lg border border-amber-200 bg-amber-50 p-6 text-center text-amber-900">
+      <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6 text-center text-amber-900">
         <p className="font-medium">{error}</p>
         <p className="mt-1 text-sm">Coba gunakan lokasi lain atau muat ulang halaman.</p>
       </div>
@@ -91,7 +91,12 @@ export function ProductGrid({ limit = 12, showFilters = false }: { limit?: numbe
       )}
 
       {data && data.items.length === 0 ? (
-        <p className="py-10 text-center text-sm text-foreground/60">Tidak ada produk ditemukan.</p>
+        <div className="flex flex-col items-center gap-2 py-16 text-center">
+          <span aria-hidden className="text-4xl">
+            🔍
+          </span>
+          <p className="text-sm text-foreground/60">Tidak ada produk ditemukan.</p>
+        </div>
       ) : (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
           {data?.items.map((item) => (
@@ -122,17 +127,17 @@ function Pager({
       <button
         disabled={page <= 1}
         onClick={() => onPage(page - 1)}
-        className="rounded border border-border px-3 py-1 disabled:opacity-40"
+        className="rounded-lg border border-border px-3 py-1.5 font-medium transition-colors hover:bg-surface disabled:pointer-events-none disabled:opacity-40"
       >
         Sebelumnya
       </button>
-      <span>
-        Halaman {page} dari {totalPages}
+      <span className="text-foreground/60">
+        Halaman <span className="font-semibold text-foreground">{page}</span> dari {totalPages}
       </span>
       <button
         disabled={page >= totalPages}
         onClick={() => onPage(page + 1)}
-        className="rounded border border-border px-3 py-1 disabled:opacity-40"
+        className="rounded-lg border border-border px-3 py-1.5 font-medium transition-colors hover:bg-surface disabled:pointer-events-none disabled:opacity-40"
       >
         Berikutnya
       </button>
@@ -144,7 +149,14 @@ function ProductGridSkeleton({ count }: { count: number }) {
   return (
     <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
       {Array.from({ length: count }).map((_, i) => (
-        <div key={i} className="aspect-square animate-pulse rounded-xl bg-surface" />
+        <div key={i} className="flex flex-col overflow-hidden rounded-2xl border border-border">
+          <div className="aspect-square animate-pulse bg-surface" />
+          <div className="flex flex-col gap-2 p-3.5">
+            <div className="h-3 w-16 animate-pulse rounded bg-surface" />
+            <div className="h-4 w-full animate-pulse rounded bg-surface" />
+            <div className="h-4 w-2/3 animate-pulse rounded bg-surface" />
+          </div>
+        </div>
       ))}
     </div>
   );

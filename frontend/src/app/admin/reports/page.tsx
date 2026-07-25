@@ -118,7 +118,7 @@ export default function AdminReportsPage() {
 
   return (
     <div>
-      <h1 className="text-xl font-bold">Laporan</h1>
+      <h1 className="text-xl font-bold tracking-tight">Laporan</h1>
 
       <div className="mt-4 flex flex-wrap gap-2">
         {REPORTS.map((r) => (
@@ -225,7 +225,7 @@ function FilterField({ label, children }: { label: string; children: React.React
 function ReportTable({ active, rows }: { active: ReportKey; rows: unknown[] }) {
   if (rows.length === 0) {
     return (
-      <div className="rounded-xl border border-border p-6 text-center text-sm text-foreground/50">
+      <div className="rounded-2xl border border-border bg-background shadow-soft p-6 text-center text-sm text-foreground/50">
         Tidak ada data untuk periode ini.
       </div>
     );
@@ -236,7 +236,7 @@ function ReportTable({ active, rows }: { active: ReportKey; rows: unknown[] }) {
     return (
       <Table headers={["Bulan", "Jumlah Pesanan", "Total Penjualan"]}>
         {data.map((r) => (
-          <tr key={r.month} className="border-t border-border">
+          <tr key={r.month} className="border-t border-border transition-colors hover:bg-surface/50">
             <td className="p-3">{r.month}</td>
             <td className="p-3">{r.order_count}</td>
             <td className="p-3 font-medium">{formatIDR(r.total)}</td>
@@ -251,7 +251,7 @@ function ReportTable({ active, rows }: { active: ReportKey; rows: unknown[] }) {
     return (
       <Table headers={["Kategori", "Qty Terjual", "Total Penjualan"]}>
         {data.map((r) => (
-          <tr key={r.category_id} className="border-t border-border">
+          <tr key={r.category_id} className="border-t border-border transition-colors hover:bg-surface/50">
             <td className="p-3">{r.category_name}</td>
             <td className="p-3">{r.quantity}</td>
             <td className="p-3 font-medium">{formatIDR(r.total)}</td>
@@ -266,7 +266,7 @@ function ReportTable({ active, rows }: { active: ReportKey; rows: unknown[] }) {
     return (
       <Table headers={["Produk", "Qty Terjual", "Total Penjualan"]}>
         {data.map((r) => (
-          <tr key={r.product_id} className="border-t border-border">
+          <tr key={r.product_id} className="border-t border-border transition-colors hover:bg-surface/50">
             <td className="p-3">{r.product_name}</td>
             <td className="p-3">{r.quantity}</td>
             <td className="p-3 font-medium">{formatIDR(r.total)}</td>
@@ -281,7 +281,7 @@ function ReportTable({ active, rows }: { active: ReportKey; rows: unknown[] }) {
     return (
       <Table headers={["Produk", "Stok Awal", "Masuk", "Keluar", "Stok Akhir"]}>
         {data.map((r) => (
-          <tr key={r.product_id} className="border-t border-border">
+          <tr key={r.product_id} className="border-t border-border transition-colors hover:bg-surface/50">
             <td className="p-3">{r.product_name}</td>
             <td className="p-3">{r.start_stock}</td>
             <td className="p-3 text-brand-dark">+{r.stock_in}</td>
@@ -297,7 +297,7 @@ function ReportTable({ active, rows }: { active: ReportKey; rows: unknown[] }) {
   return (
     <Table headers={["Tanggal", "Produk", "Tipe", "Jumlah", "Referensi", "Catatan"]}>
       {data.map((j) => (
-        <tr key={j.id} className="border-t border-border">
+        <tr key={j.id} className="border-t border-border transition-colors hover:bg-surface/50">
           <td className="p-3 text-foreground/60">{new Date(j.created_at).toLocaleString("id-ID")}</td>
           <td className="p-3">{j.product?.name ?? `Produk #${j.product_id}`}</td>
           <td className="p-3">
@@ -316,9 +316,9 @@ function ReportTable({ active, rows }: { active: ReportKey; rows: unknown[] }) {
 
 function Table({ headers, children }: { headers: string[]; children: React.ReactNode }) {
   return (
-    <div className="overflow-x-auto rounded-xl border border-border">
+    <div className="overflow-x-auto rounded-2xl border border-border bg-background shadow-soft">
       <table className="w-full text-sm">
-        <thead className="bg-surface text-left text-foreground/60">
+        <thead className="bg-surface/80 text-left text-xs font-semibold uppercase tracking-wide text-foreground/60">
           <tr>
             {headers.map((h) => (
               <th key={h} className="p-3">

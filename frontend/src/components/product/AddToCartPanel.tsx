@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 
 import { api, ApiError } from "@/lib/api";
 import { formatIDR } from "@/lib/format";
+import { QuantityStepper } from "@/components/ui/QuantityStepper";
+import { outlineBrandButtonClass } from "@/components/auth/AuthCard";
 import type { User } from "@/types";
 
 interface Props {
@@ -27,7 +29,10 @@ export function AddToCartPanel({ productId, storeId, stock, price, effectivePric
   if (!user) {
     return (
       <Notice text="Masuk untuk menambahkan produk ini ke keranjang.">
-        <Link href="/login" className="rounded-md bg-brand px-4 py-2 text-sm font-medium text-white">
+        <Link
+          href="/login"
+          className="inline-block rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white shadow-soft transition-all hover:-translate-y-0.5 hover:bg-brand-dark hover:shadow-md"
+        >
           Masuk
         </Link>
       </Notice>
@@ -89,64 +94,25 @@ export function AddToCartPanel({ productId, storeId, stock, price, effectivePric
         type="button"
         onClick={handleAdd}
         disabled={status === "loading"}
-        className="rounded-md bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark disabled:opacity-60"
+        className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white shadow-soft transition-all hover:-translate-y-0.5 hover:bg-brand-dark hover:shadow-md active:translate-y-0 disabled:opacity-60"
       >
         {status === "loading" ? "Menambahkan…" : "+ Keranjang"}
       </button>
-      <button
-        type="button"
-        onClick={handleBuyNow}
-        className="rounded-md border border-brand px-4 py-2 text-sm font-medium text-brand-dark hover:bg-brand-light"
-      >
+      <button type="button" onClick={handleBuyNow} className={`w-full ${outlineBrandButtonClass}`}>
         Beli Langsung
       </button>
 
-      {status === "done" && <p className="text-sm text-brand-dark">Ditambahkan ke keranjang.</p>}
+      {status === "done" && (
+        <p className="flex items-center gap-1.5 text-sm font-medium text-brand-dark">✓ Ditambahkan ke keranjang.</p>
+      )}
       {status === "error" && message && <p className="text-sm text-red-600">{message}</p>}
-    </div>
-  );
-}
-
-function QuantityStepper({ qty, max, onChange }: { qty: number; max: number; onChange: (n: number) => void }) {
-  function clamp(n: number) {
-    if (!Number.isFinite(n)) return 1;
-    return Math.min(max, Math.max(1, Math.trunc(n)));
-  }
-
-  return (
-    <div className="inline-flex w-fit items-center self-start rounded-md border border-border">
-      <button
-        type="button"
-        onClick={() => onChange(clamp(qty - 1))}
-        className="px-3 py-2 text-sm"
-        aria-label="Kurangi jumlah"
-      >
-        −
-      </button>
-      <input
-        type="number"
-        min={1}
-        max={max}
-        value={qty}
-        onChange={(e) => onChange(clamp(Number(e.target.value)))}
-        className="w-12 border-x border-border bg-transparent py-2 text-center text-sm outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-        aria-label="Jumlah"
-      />
-      <button
-        type="button"
-        onClick={() => onChange(clamp(qty + 1))}
-        className="px-3 py-2 text-sm"
-        aria-label="Tambah jumlah"
-      >
-        +
-      </button>
     </div>
   );
 }
 
 function Notice({ text, children }: { text: string; children?: React.ReactNode }) {
   return (
-    <div className="rounded-md border border-border bg-surface p-4">
+    <div>
       <p className="text-sm text-foreground/70">{text}</p>
       {children && <div className="mt-3">{children}</div>}
     </div>

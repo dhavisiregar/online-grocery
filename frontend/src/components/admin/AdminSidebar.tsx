@@ -12,17 +12,17 @@ interface AdminLink {
   roles: Role[];
 }
 
-const LINKS: AdminLink[] = [
-  { href: "/admin", label: "Dashboard", roles: ["super_admin", "store_admin"] },
-  { href: "/admin/products", label: "Produk", roles: ["super_admin", "store_admin"] },
-  { href: "/admin/categories", label: "Kategori", roles: ["super_admin", "store_admin"] },
-  { href: "/admin/inventory", label: "Stok", roles: ["super_admin", "store_admin"] },
-  { href: "/admin/discounts", label: "Diskon & Voucher", roles: ["super_admin", "store_admin"] },
-  { href: "/admin/orders", label: "Pesanan", roles: ["super_admin", "store_admin"] },
-  { href: "/admin/reports", label: "Laporan", roles: ["super_admin", "store_admin"] },
-  { href: "/admin/stores", label: "Toko", roles: ["super_admin"] },
-  { href: "/admin/store-admins", label: "Store Admin", roles: ["super_admin"] },
-  { href: "/admin/users", label: "Pengguna", roles: ["super_admin"] },
+const LINKS: (AdminLink & { icon: string })[] = [
+  { href: "/admin", label: "Dashboard", icon: "📊", roles: ["super_admin", "store_admin"] },
+  { href: "/admin/products", label: "Produk", icon: "🥬", roles: ["super_admin", "store_admin"] },
+  { href: "/admin/categories", label: "Kategori", icon: "🏷️", roles: ["super_admin", "store_admin"] },
+  { href: "/admin/inventory", label: "Stok", icon: "📦", roles: ["super_admin", "store_admin"] },
+  { href: "/admin/discounts", label: "Diskon & Voucher", icon: "🎟️", roles: ["super_admin", "store_admin"] },
+  { href: "/admin/orders", label: "Pesanan", icon: "🧾", roles: ["super_admin", "store_admin"] },
+  { href: "/admin/reports", label: "Laporan", icon: "📈", roles: ["super_admin", "store_admin"] },
+  { href: "/admin/stores", label: "Toko", icon: "🏬", roles: ["super_admin"] },
+  { href: "/admin/store-admins", label: "Store Admin", icon: "🧑‍💼", roles: ["super_admin"] },
+  { href: "/admin/users", label: "Pengguna", icon: "👥", roles: ["super_admin"] },
 ];
 
 export function AdminSidebar() {
@@ -31,17 +31,20 @@ export function AdminSidebar() {
   const links = LINKS.filter((l) => !user || l.roles.includes(user.role));
 
   return (
-    <nav className="flex gap-1 overflow-x-auto border-b border-border p-2 md:w-56 md:flex-col md:border-b-0 md:border-r md:p-4">
+    <nav className="flex gap-1 overflow-x-auto border-b border-border p-2 md:w-60 md:flex-col md:border-b-0 md:border-r md:p-4">
       {links.map((link) => {
         const active = pathname === link.href;
         return (
           <Link
             key={link.href}
             href={link.href}
-            className={`whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium ${
-              active ? "bg-brand-light text-brand-dark" : "text-foreground/70 hover:bg-surface"
+            className={`flex items-center gap-2.5 whitespace-nowrap rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+              active
+                ? "bg-brand text-white shadow-soft"
+                : "text-foreground/70 hover:bg-surface hover:text-foreground"
             }`}
           >
+            <span aria-hidden>{link.icon}</span>
             {link.label}
           </Link>
         );

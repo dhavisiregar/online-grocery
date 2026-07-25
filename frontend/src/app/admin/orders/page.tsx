@@ -4,8 +4,9 @@ import { useState } from "react";
 
 import { usePaginatedApi } from "@/hooks/usePaginatedApi";
 import { StatusNotice } from "@/components/admin/StatusNotice";
+import { OrderStatusBadge } from "@/components/ui/StatusBadge";
 import { api, ApiError } from "@/lib/api";
-import { ORDER_STATUS_LABEL, type Order } from "@/types";
+import type { Order } from "@/types";
 import { formatIDR } from "@/lib/format";
 
 export default function AdminOrdersPage() {
@@ -24,13 +25,13 @@ export default function AdminOrdersPage() {
 
   return (
     <div>
-      <h1 className="text-xl font-bold">Pesanan</h1>
+      <h1 className="text-xl font-bold tracking-tight">Pesanan</h1>
       <p className="mt-1 text-sm text-foreground/60">
         Super admin melihat semua toko; store admin hanya melihat pesanan toko masing-masing.
       </p>
 
       {actionError && (
-        <p className="mt-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">{actionError}</p>
+        <p className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3.5 text-sm text-red-700">{actionError}</p>
       )}
 
       {!loading && error && (
@@ -41,9 +42,9 @@ export default function AdminOrdersPage() {
       {loading && <p className="mt-4 text-sm text-foreground/60">Memuat…</p>}
 
       {!loading && !error && items.length > 0 && (
-        <div className="mt-4 overflow-x-auto rounded-xl border border-border">
+        <div className="mt-4 overflow-x-auto rounded-2xl border border-border bg-background shadow-soft">
           <table className="w-full text-sm">
-            <thead className="bg-surface text-left text-foreground/60">
+            <thead className="bg-surface/80 text-left text-xs font-semibold uppercase tracking-wide text-foreground/60">
               <tr>
                 <th className="p-3">No. Pesanan</th>
                 <th className="p-3">Status</th>
@@ -53,10 +54,12 @@ export default function AdminOrdersPage() {
             </thead>
             <tbody>
               {items.map((o) => (
-                <tr key={o.id} className="border-t border-border">
-                  <td className="p-3">{o.order_number}</td>
-                  <td className="p-3">{ORDER_STATUS_LABEL[o.status]}</td>
-                  <td className="p-3">{formatIDR(o.total)}</td>
+                <tr key={o.id} className="border-t border-border transition-colors hover:bg-surface/50">
+                  <td className="p-3 font-medium">{o.order_number}</td>
+                  <td className="p-3">
+                    <OrderStatusBadge status={o.status} />
+                  </td>
+                  <td className="p-3 font-medium">{formatIDR(o.total)}</td>
                   <td className="p-3">
                     <OrderActions order={o} onAction={runAction} />
                   </td>

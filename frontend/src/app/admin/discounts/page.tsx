@@ -58,11 +58,11 @@ export default function AdminDiscountsPage() {
   return (
     <div>
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold">Diskon &amp; Voucher</h1>
+        <h1 className="text-xl font-bold tracking-tight">Diskon &amp; Voucher</h1>
         <button
           type="button"
           onClick={() => (tab === "discounts" ? setEditingDiscount("new") : setCreatingVoucher(true))}
-          className="rounded-md bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark"
+          className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white shadow-soft transition-all hover:-translate-y-0.5 hover:bg-brand-dark hover:shadow-md active:translate-y-0"
         >
           + Buat {tab === "discounts" ? "Diskon" : "Voucher"}
         </button>
@@ -81,9 +81,9 @@ export default function AdminDiscountsPage() {
       {active.loading && <p className="mt-4 text-sm text-foreground/60">Memuat…</p>}
 
       {!active.loading && !active.error && tab === "discounts" && (
-        <div className="mt-4 overflow-x-auto rounded-xl border border-border">
+        <div className="mt-4 overflow-x-auto rounded-2xl border border-border bg-background shadow-soft">
           <table className="w-full text-sm">
-            <thead className="bg-surface text-left text-foreground/60">
+            <thead className="bg-surface/80 text-left text-xs font-semibold uppercase tracking-wide text-foreground/60">
               <tr>
                 {isSuperAdmin && <th className="p-3">Toko</th>}
                 <th className="p-3">Jenis</th>
@@ -95,7 +95,7 @@ export default function AdminDiscountsPage() {
             </thead>
             <tbody>
               {discounts.items.map((d) => (
-                <tr key={d.id} className="border-t border-border">
+                <tr key={d.id} className="border-t border-border transition-colors hover:bg-surface/50">
                   {isSuperAdmin && <td className="p-3 text-foreground/60">{stores[d.store_id] ?? `#${d.store_id}`}</td>}
                   <td className="p-3">{DISCOUNT_TYPE_LABEL[d.type]}</td>
                   <td className="p-3 text-foreground/60">
@@ -148,9 +148,9 @@ export default function AdminDiscountsPage() {
       )}
 
       {!active.loading && !active.error && tab === "vouchers" && (
-        <div className="mt-4 overflow-x-auto rounded-xl border border-border">
+        <div className="mt-4 overflow-x-auto rounded-2xl border border-border bg-background shadow-soft">
           <table className="w-full text-sm">
-            <thead className="bg-surface text-left text-foreground/60">
+            <thead className="bg-surface/80 text-left text-xs font-semibold uppercase tracking-wide text-foreground/60">
               <tr>
                 <th className="p-3">Kode</th>
                 <th className="p-3">Jenis</th>
@@ -160,7 +160,7 @@ export default function AdminDiscountsPage() {
             </thead>
             <tbody>
               {vouchers.items.map((v) => (
-                <tr key={v.id} className="border-t border-border">
+                <tr key={v.id} className="border-t border-border transition-colors hover:bg-surface/50">
                   <td className="p-3 font-mono font-medium">{v.code}</td>
                   <td className="p-3">{VOUCHER_TYPE_LABEL[v.type]}</td>
                   <td className="p-3">

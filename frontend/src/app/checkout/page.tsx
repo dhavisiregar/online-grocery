@@ -165,11 +165,17 @@ function CheckoutContent() {
   if (items && items.length === 0) {
     return (
       <div className="mx-auto max-w-2xl px-4 py-16 text-center">
-        <p className="text-foreground/60">
+        <span aria-hidden className="text-4xl">
+          🛒
+        </span>
+        <p className="mt-3 text-foreground/60">
           {isBuyNow ? "Produk tidak ditemukan." : "Keranjang Anda kosong."}
         </p>
-        <Link href="/products" className="mt-3 inline-block text-sm text-brand-dark hover:underline">
-          Mulai belanja →
+        <Link
+          href="/products"
+          className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-brand-dark hover:underline"
+        >
+          Mulai belanja <span aria-hidden>→</span>
         </Link>
       </div>
     );
@@ -177,9 +183,9 @@ function CheckoutContent() {
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-8">
-      <h1 className="text-2xl font-bold">Checkout</h1>
+      <h1 className="text-2xl font-bold tracking-tight">Checkout</h1>
 
-      <div className="mt-6 flex flex-col gap-6">
+      <div className="mt-6 flex flex-col gap-5">
         {isBuyNow && items && items[0] && (
           <Section title="Produk">
             <p className="text-sm">
@@ -202,8 +208,8 @@ function CheckoutContent() {
               {addresses.map((addr) => (
                 <label
                   key={addr.id}
-                  className={`flex cursor-pointer items-start gap-3 rounded-md border p-3 text-sm ${
-                    addressId === addr.id ? "border-brand bg-brand-light/40" : "border-border"
+                  className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3.5 text-sm transition-colors ${
+                    addressId === addr.id ? "border-brand bg-brand-light/40" : "border-border hover:bg-surface"
                   }`}
                 >
                   <input
@@ -236,10 +242,10 @@ function CheckoutContent() {
               {shippingOptions.map((opt) => (
                 <label
                   key={`${opt.courier}-${opt.service}`}
-                  className={`flex cursor-pointer items-center justify-between gap-3 rounded-md border p-3 text-sm ${
+                  className={`flex cursor-pointer items-center justify-between gap-3 rounded-xl border p-3.5 text-sm transition-colors ${
                     selected?.courier === opt.courier && selected?.service === opt.service
                       ? "border-brand bg-brand-light/40"
-                      : "border-border"
+                      : "border-border hover:bg-surface"
                   }`}
                 >
                   <span className="flex items-start gap-3">
@@ -282,8 +288,8 @@ function CheckoutContent() {
           ) : (
             <div className="flex flex-col gap-2">
               <label
-                className={`flex cursor-pointer items-center gap-3 rounded-md border p-3 text-sm ${
-                  voucherId === null ? "border-brand bg-brand-light/40" : "border-border"
+                className={`flex cursor-pointer items-center gap-3 rounded-xl border p-3.5 text-sm transition-colors ${
+                  voucherId === null ? "border-brand bg-brand-light/40" : "border-border hover:bg-surface"
                 }`}
               >
                 <input type="radio" name="voucher" checked={voucherId === null} onChange={() => setVoucherId(null)} />
@@ -292,8 +298,8 @@ function CheckoutContent() {
               {vouchers.map((uv) => (
                 <label
                   key={uv.id}
-                  className={`flex cursor-pointer items-center justify-between gap-3 rounded-md border p-3 text-sm ${
-                    voucherId === uv.id ? "border-brand bg-brand-light/40" : "border-border"
+                  className={`flex cursor-pointer items-center justify-between gap-3 rounded-xl border p-3.5 text-sm transition-colors ${
+                    voucherId === uv.id ? "border-brand bg-brand-light/40" : "border-border hover:bg-surface"
                   }`}
                 >
                   <span className="flex items-center gap-3">
@@ -336,7 +342,7 @@ function CheckoutContent() {
         </Section>
 
         {status === "error" && message && (
-          <p className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">{message}</p>
+          <p className="rounded-xl border border-amber-200 bg-amber-50 p-3.5 text-sm text-amber-900">{message}</p>
         )}
 
         <button
@@ -354,8 +360,8 @@ function CheckoutContent() {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-xl border border-border p-6">
-      <h2 className="font-semibold">{title}</h2>
+    <div className="rounded-2xl border border-border bg-background p-6 shadow-soft">
+      <h2 className="text-xs font-semibold uppercase tracking-wide text-foreground/50">{title}</h2>
       <div className="mt-3">{children}</div>
     </div>
   );

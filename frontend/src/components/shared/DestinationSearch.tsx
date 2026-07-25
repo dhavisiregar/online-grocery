@@ -72,13 +72,13 @@ export function DestinationSearch({
       {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
 
       {open && results.length > 0 && (
-        <ul className="absolute z-20 mt-1 max-h-56 w-full overflow-y-auto rounded-md border border-border bg-background shadow-lg">
+        <ul className="animate-scale-in absolute z-20 mt-1.5 max-h-56 w-full overflow-y-auto rounded-xl border border-border bg-background p-1 shadow-soft-lg">
           {results.map((d) => (
             <li key={d.id}>
               <button
                 type="button"
                 onClick={() => handleSelect(d)}
-                className="block w-full px-3 py-2 text-left text-sm hover:bg-surface"
+                className="block w-full rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-surface"
               >
                 {d.label}
               </button>

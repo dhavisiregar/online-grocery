@@ -12,13 +12,13 @@ export function AddressCard({
   onSetPrimary: () => void;
 }) {
   return (
-    <div className="rounded-xl border border-border p-4">
+    <div className="rounded-2xl border border-border bg-background p-4 shadow-soft transition-shadow hover:shadow-soft-lg">
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
             <p className="font-semibold">{address.label}</p>
             {address.is_primary && (
-              <span className="rounded bg-brand-light px-2 py-0.5 text-xs font-medium text-brand-dark">
+              <span className="rounded-full bg-brand-light px-2 py-0.5 text-xs font-medium text-brand-dark">
                 Utama
               </span>
             )}
@@ -33,16 +33,16 @@ export function AddressCard({
         </div>
       </div>
 
-      <div className="mt-3 flex gap-4 text-sm">
-        <button type="button" onClick={onEdit} className="text-brand-dark hover:underline">
+      <div className="mt-3 flex gap-4 border-t border-border pt-3 text-sm">
+        <button type="button" onClick={onEdit} className="font-medium text-brand-dark hover:underline">
           Edit
         </button>
         {!address.is_primary && (
-          <button type="button" onClick={onSetPrimary} className="text-brand-dark hover:underline">
+          <button type="button" onClick={onSetPrimary} className="font-medium text-brand-dark hover:underline">
             Jadikan Utama
           </button>
         )}
-        <button type="button" onClick={onDelete} className="text-red-600 hover:underline">
+        <button type="button" onClick={onDelete} className="font-medium text-red-600 hover:underline">
           Hapus
         </button>
       </div>

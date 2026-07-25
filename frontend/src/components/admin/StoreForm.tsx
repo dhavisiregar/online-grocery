@@ -88,8 +88,8 @@ export function StoreForm({
         <DestinationSearch onSelect={handleDestinationSelect} />
       </FormField>
       {values.province && (
-        <p className="rounded-md bg-surface p-3 text-sm text-foreground/70">
-          {values.city}, {values.province}
+        <p className="rounded-lg bg-surface p-3 text-sm text-foreground/70">
+          📍 {values.city}, {values.province}
         </p>
       )}
 
@@ -119,7 +119,7 @@ export function StoreForm({
         Jadikan toko utama (fallback saat lokasi pengguna tidak tersedia)
       </label>
 
-      <div className="flex flex-col gap-2 rounded-md bg-surface p-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-2 rounded-lg bg-surface p-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-foreground/60">
           {geocoding
             ? "Mencari titik lokasi…"
@@ -131,7 +131,7 @@ export function StoreForm({
           type="button"
           onClick={useCurrentLocation}
           disabled={locating}
-          className="rounded-md border border-border px-3 py-1.5 text-sm font-medium hover:bg-background"
+          className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm font-medium transition-colors hover:bg-surface disabled:pointer-events-none disabled:opacity-60"
         >
           {locating ? "Mengambil lokasi…" : "📍 Gunakan Lokasi Saat Ini"}
         </button>

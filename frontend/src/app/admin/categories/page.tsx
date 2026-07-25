@@ -62,11 +62,11 @@ export default function AdminCategoriesPage() {
   return (
     <div>
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold">Kategori</h1>
+        <h1 className="text-xl font-bold tracking-tight">Kategori</h1>
         <button
           type="button"
           onClick={openCreate}
-          className="rounded-md bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark"
+          className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white shadow-soft transition-all hover:-translate-y-0.5 hover:bg-brand-dark hover:shadow-md active:translate-y-0"
         >
           + Tambah Kategori
         </button>
@@ -76,9 +76,9 @@ export default function AdminCategoriesPage() {
       {loading && <p className="mt-4 text-sm text-foreground/60">Memuat…</p>}
 
       {!loading && !error && (
-        <div className="mt-4 overflow-x-auto rounded-xl border border-border">
+        <div className="mt-4 overflow-x-auto rounded-2xl border border-border bg-background shadow-soft">
           <table className="w-full text-sm">
-            <thead className="bg-surface text-left text-foreground/60">
+            <thead className="bg-surface/80 text-left text-xs font-semibold uppercase tracking-wide text-foreground/60">
               <tr>
                 <th className="p-3">Nama</th>
                 <th className="p-3">Aksi</th>
@@ -86,7 +86,7 @@ export default function AdminCategoriesPage() {
             </thead>
             <tbody>
               {items.map((c) => (
-                <tr key={c.id} className="border-t border-border">
+                <tr key={c.id} className="border-t border-border transition-colors hover:bg-surface/50">
                   <td className="p-3">{c.name}</td>
                   <td className="p-3">
                     <div className="flex gap-3">

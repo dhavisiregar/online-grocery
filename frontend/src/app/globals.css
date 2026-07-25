@@ -8,6 +8,11 @@
   --brand-light: #dcfce7;
   --surface: #f7faf8;
   --border: #e3e8e4;
+
+  /* Soft elevation — tuned lighter than Tailwind's default shadow-md/lg so
+     cards read as "lifted paper" rather than heavy drop shadows. */
+  --shadow-soft: 0 1px 2px rgba(20, 35, 27, 0.04), 0 6px 16px -4px rgba(20, 35, 27, 0.08);
+  --shadow-soft-lg: 0 2px 4px rgba(20, 35, 27, 0.04), 0 16px 32px -8px rgba(20, 35, 27, 0.12);
 }
 
 @theme inline {
@@ -20,6 +25,29 @@
   --color-border: var(--border);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --shadow-soft: var(--shadow-soft);
+  --shadow-soft-lg: var(--shadow-soft-lg);
+  --animate-fade-in: fade-in 0.15s ease-out;
+  --animate-scale-in: scale-in 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-slide-up: slide-up 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+  }
+  @keyframes scale-in {
+    from {
+      opacity: 0;
+      transform: scale(0.96) translateY(4px);
+    }
+  }
+  @keyframes slide-up {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+  }
 }
 
 @media (prefers-color-scheme: dark) {
@@ -31,6 +59,11 @@
     --brand-light: #14301f;
     --surface: #131c17;
     --border: #223028;
+
+    /* Dark backgrounds need lighter, more diffuse shadows plus a hint of a
+       lighter border-glow — plain black shadows disappear against them. */
+    --shadow-soft: 0 1px 2px rgba(0, 0, 0, 0.2), 0 6px 20px -4px rgba(0, 0, 0, 0.35);
+    --shadow-soft-lg: 0 2px 4px rgba(0, 0, 0, 0.25), 0 20px 40px -8px rgba(0, 0, 0, 0.45);
   }
 }
 
@@ -38,4 +71,39 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: var(--brand-light);
+  color: var(--brand-dark);
+}
+
+/* One consistent focus treatment everywhere, replacing the browser default
+   outline — keeps keyboard navigation visible without every component
+   having to opt in individually. */
+:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* Quiet, theme-matched scrollbar (WebKit + Firefox) instead of the stock
+   system one, which looks jarring against a custom dark surface. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 999px;
+  border: 2px solid var(--background);
 }

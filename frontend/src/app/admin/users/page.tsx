@@ -10,23 +10,23 @@ export default function AdminUsersPage() {
 
   return (
     <div>
-      <h1 className="text-xl font-bold">Pengguna Terdaftar</h1>
+      <h1 className="text-xl font-bold tracking-tight">Pengguna Terdaftar</h1>
 
       <input
         type="search"
         placeholder="Cari pengguna…"
         defaultValue={search}
         onChange={(e) => setSearch(e.target.value)}
-        className="mt-4 w-full max-w-sm rounded-md border border-border bg-background px-3 py-2 text-sm"
+        className="mt-4 w-full max-w-sm rounded-lg border border-border bg-background px-3.5 py-2.5 text-sm outline-none transition-shadow placeholder:text-foreground/40 focus:border-brand focus:ring-2 focus:ring-brand/25"
       />
 
       {error && <div className="mt-4"><StatusNotice message={error} /></div>}
       {loading && <p className="mt-4 text-sm text-foreground/60">Memuat…</p>}
 
       {!loading && !error && (
-        <div className="mt-4 overflow-x-auto rounded-xl border border-border">
+        <div className="mt-4 overflow-x-auto rounded-2xl border border-border bg-background shadow-soft">
           <table className="w-full text-sm">
-            <thead className="bg-surface text-left text-foreground/60">
+            <thead className="bg-surface/80 text-left text-xs font-semibold uppercase tracking-wide text-foreground/60">
               <tr>
                 <th className="p-3">Nama</th>
                 <th className="p-3">Email</th>
@@ -36,11 +36,23 @@ export default function AdminUsersPage() {
             </thead>
             <tbody>
               {items.map((u) => (
-                <tr key={u.id} className="border-t border-border">
-                  <td className="p-3">{u.name}</td>
-                  <td className="p-3">{u.email}</td>
-                  <td className="p-3">{u.role}</td>
-                  <td className="p-3">{u.is_verified ? "Terverifikasi" : "Belum"}</td>
+                <tr key={u.id} className="border-t border-border transition-colors hover:bg-surface/50">
+                  <td className="p-3 font-medium">{u.name}</td>
+                  <td className="p-3 text-foreground/70">{u.email}</td>
+                  <td className="p-3">
+                    <span className="rounded-full bg-surface px-2.5 py-1 text-xs font-medium text-foreground/70">
+                      {u.role}
+                    </span>
+                  </td>
+                  <td className="p-3">
+                    <span
+                      className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                        u.is_verified ? "bg-brand-light text-brand-dark" : "bg-amber-100 text-amber-800"
+                      }`}
+                    >
+                      {u.is_verified ? "Terverifikasi" : "Belum"}
+                    </span>
+                  </td>
                 </tr>
               ))}
               {items.length === 0 && (

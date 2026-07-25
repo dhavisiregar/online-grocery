@@ -136,6 +136,7 @@ export function ProductForm({
           multiple
           accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
           onChange={handleFiles}
+          className="w-full text-sm text-foreground/70 file:mr-3 file:rounded-lg file:border-0 file:bg-brand-light file:px-3.5 file:py-2 file:text-sm file:font-semibold file:text-brand-dark hover:file:bg-brand-light/70"
         />
       </FormField>
       <p className="text-xs text-foreground/50">Format .jpg/.jpeg/.png/.gif/.webp, maksimum 1MB per foto.</p>

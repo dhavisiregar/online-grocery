@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 import { useAuth } from "@/contexts/AuthContext";
+import { PageLoader } from "@/components/ui/Spinner";
 
 // Unauthenticated (or, when requireVerified is set, unverified) users are
 // redirected to the homepage rather than a login page, per spec.
@@ -25,7 +26,7 @@ export function RequireAuth({
   }, [loading, user, requireVerified, router]);
 
   if (loading || !user || (requireVerified && !user.is_verified)) {
-    return <div className="px-4 py-16 text-center text-sm text-foreground/60">Memuat…</div>;
+    return <PageLoader />;
   }
 
   return <>{children}</>;

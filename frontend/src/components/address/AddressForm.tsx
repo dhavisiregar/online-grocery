@@ -2,7 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 
-import { FormField, inputClass, primaryButtonClass } from "@/components/auth/AuthCard";
+import { FormField, inputClass, primaryButtonClass, secondaryButtonClass } from "@/components/auth/AuthCard";
 import { DestinationSearch } from "@/components/shared/DestinationSearch";
 import { api } from "@/lib/api";
 import type { Destination, UserAddress } from "@/types";
@@ -86,7 +86,7 @@ export function AddressForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-4 rounded-xl border border-border p-6">
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4 rounded-2xl border border-border bg-background p-6 shadow-soft">
       <div className="grid gap-4 sm:grid-cols-2">
         <FormField label="Label (mis. Rumah, Kantor)">
           <input required value={values.label} onChange={(e) => set("label", e.target.value)} className={inputClass} />
@@ -109,8 +109,8 @@ export function AddressForm({
       </FormField>
 
       {values.province && (
-        <p className="rounded-md bg-surface p-3 text-sm text-foreground/70">
-          {values.district}, {values.city}, {values.province} {values.postal_code}
+        <p className="rounded-lg bg-surface p-3 text-sm text-foreground/70">
+          📍 {values.district}, {values.city}, {values.province} {values.postal_code}
         </p>
       )}
 
@@ -124,7 +124,7 @@ export function AddressForm({
         />
       </FormField>
 
-      <div className="flex flex-col gap-2 rounded-md bg-surface p-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-2 rounded-lg bg-surface p-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-foreground/60">
           {geocoding
             ? "Mencari titik lokasi…"
@@ -136,7 +136,7 @@ export function AddressForm({
           type="button"
           onClick={useCurrentLocation}
           disabled={locating}
-          className="rounded-md border border-border px-3 py-1.5 text-sm font-medium hover:bg-background"
+          className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm font-medium transition-colors hover:bg-surface disabled:pointer-events-none disabled:opacity-60"
         >
           {locating ? "Mengambil lokasi…" : "📍 Gunakan Lokasi Saat Ini"}
         </button>
@@ -148,7 +148,7 @@ export function AddressForm({
         <button type="submit" disabled={submitting || !values.latitude} className={primaryButtonClass}>
           {submitting ? "Menyimpan…" : "Simpan Alamat"}
         </button>
-        <button type="button" onClick={onCancel} className="rounded-md border border-border px-4 py-2 text-sm">
+        <button type="button" onClick={onCancel} className={secondaryButtonClass}>
           Batal
         </button>
       </div>

@@ -34,8 +34,11 @@ export default function ProductDetailPage() {
   if (error || !item) {
     return (
       <div className="mx-auto max-w-2xl px-4 py-16 text-center">
-        <p className="text-foreground/70">{error ?? "Produk tidak ditemukan."}</p>
-        <Link href="/products" className="mt-4 inline-block text-sm text-brand-dark hover:underline">
+        <span aria-hidden className="text-4xl">
+          🥕
+        </span>
+        <p className="mt-3 text-foreground/70">{error ?? "Produk tidak ditemukan."}</p>
+        <Link href="/products" className="mt-4 inline-block text-sm font-medium text-brand-dark hover:underline">
           ← Kembali ke daftar produk
         </Link>
       </div>
@@ -47,12 +50,12 @@ export default function ProductDetailPage() {
   const image = resolveUploadUrl(product.images?.[0]?.image_url);
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8">
-      <div className="grid gap-8 md:grid-cols-2">
-        <div className="flex aspect-square items-center justify-center rounded-xl bg-surface text-6xl">
+    <div className="mx-auto max-w-5xl px-4 py-8 sm:py-10">
+      <div className="grid gap-8 md:grid-cols-2 md:gap-12">
+        <div className="flex aspect-square items-center justify-center overflow-hidden rounded-2xl border border-border bg-surface text-6xl shadow-soft">
           {image ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={image} alt={product.name} className="h-full w-full rounded-xl object-cover" />
+            <img src={image} alt={product.name} className="h-full w-full object-cover" />
           ) : (
             <span aria-hidden>🛒</span>
           )}
@@ -60,28 +63,32 @@ export default function ProductDetailPage() {
 
         <div className="flex flex-col gap-4">
           {product.category && (
-            <span className="text-sm font-medium text-brand-dark">{product.category.name}</span>
+            <span className="w-fit rounded-full bg-brand-light px-2.5 py-1 text-xs font-semibold text-brand-dark">
+              {product.category.name}
+            </span>
           )}
-          <h1 className="text-2xl font-bold">{product.name}</h1>
+          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{product.name}</h1>
           <div>
             {hasDiscount && (
               <p className="text-sm text-foreground/40 line-through">{formatIDR(product.price)}</p>
             )}
-            <p className="text-2xl font-semibold">{formatIDR(hasDiscount ? effectivePrice : product.price)}</p>
+            <p className="text-2xl font-bold sm:text-3xl">{formatIDR(hasDiscount ? effectivePrice : product.price)}</p>
           </div>
-          <p className="whitespace-pre-line text-sm text-foreground/70">
+          <p className="whitespace-pre-line text-sm leading-relaxed text-foreground/70">
             {product.description || "Tidak ada deskripsi untuk produk ini."}
           </p>
 
-          <AddToCartPanel
-            productId={product.id}
-            storeId={item.store_id}
-            stock={stock}
-            price={product.price}
-            effectivePrice={effectivePrice}
-            user={user}
-            onAdded={refreshCart}
-          />
+          <div className="mt-2 rounded-2xl border border-border bg-background p-5 shadow-soft">
+            <AddToCartPanel
+              productId={product.id}
+              storeId={item.store_id}
+              stock={stock}
+              price={product.price}
+              effectivePrice={effectivePrice}
+              user={user}
+              onAdded={refreshCart}
+            />
+          </div>
         </div>
       </div>
     </div>
@@ -90,13 +97,14 @@ export default function ProductDetailPage() {
 
 function DetailSkeleton() {
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8">
-      <div className="grid gap-8 md:grid-cols-2">
-        <div className="aspect-square animate-pulse rounded-xl bg-surface" />
+    <div className="mx-auto max-w-5xl px-4 py-8 sm:py-10">
+      <div className="grid gap-8 md:grid-cols-2 md:gap-12">
+        <div className="aspect-square animate-pulse rounded-2xl bg-surface" />
         <div className="flex flex-col gap-3">
-          <div className="h-4 w-24 animate-pulse rounded bg-surface" />
+          <div className="h-5 w-24 animate-pulse rounded-full bg-surface" />
           <div className="h-8 w-3/4 animate-pulse rounded bg-surface" />
-          <div className="h-6 w-32 animate-pulse rounded bg-surface" />
+          <div className="h-7 w-32 animate-pulse rounded bg-surface" />
+          <div className="mt-2 h-32 animate-pulse rounded-2xl bg-surface" />
         </div>
       </div>
     </div>

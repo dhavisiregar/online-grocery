@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 
 const SLIDES = [
   {
@@ -32,20 +33,29 @@ export function Hero() {
 
   return (
     <section className="relative overflow-hidden">
-      <div className={`bg-gradient-to-br ${slide.gradient} px-4 py-14 text-white sm:py-20`}>
+      <div
+        key={slide.title}
+        className={`animate-fade-in bg-linear-to-br ${slide.gradient} px-4 py-16 text-white sm:py-24`}
+      >
         <div className="mx-auto max-w-6xl">
-          <h1 className="max-w-md text-3xl font-bold sm:text-4xl">{slide.title}</h1>
-          <p className="mt-3 max-w-md text-white/90">{slide.subtitle}</p>
+          <h1 className="max-w-lg text-3xl font-bold tracking-tight text-balance sm:text-5xl">{slide.title}</h1>
+          <p className="mt-4 max-w-md text-base text-white/90 sm:text-lg">{slide.subtitle}</p>
+          <Link
+            href="/products"
+            className="mt-7 inline-flex items-center gap-2 rounded-lg bg-white px-5 py-2.5 text-sm font-semibold text-brand-dark shadow-soft-lg transition-all hover:-translate-y-0.5 hover:shadow-xl active:translate-y-0"
+          >
+            Belanja Sekarang <span aria-hidden>→</span>
+          </Link>
         </div>
       </div>
-      <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 gap-2">
+      <div className="absolute bottom-5 left-1/2 flex -translate-x-1/2 gap-2">
         {SLIDES.map((s, i) => (
           <button
             key={s.title}
             aria-label={`Slide ${i + 1}`}
             onClick={() => setIndex(i)}
-            className={`h-2 w-2 rounded-full transition-all ${
-              i === index ? "w-6 bg-white" : "bg-white/50"
+            className={`h-2 rounded-full transition-all ${
+              i === index ? "w-6 bg-white" : "w-2 bg-white/50 hover:bg-white/75"
             }`}
           />
         ))}

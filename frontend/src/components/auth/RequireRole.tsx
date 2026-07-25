@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 import { useAuth } from "@/contexts/AuthContext";
+import { PageLoader } from "@/components/ui/Spinner";
 import type { Role } from "@/types";
 
 export function RequireRole({ roles, children }: { roles: Role[]; children: React.ReactNode }) {
@@ -16,7 +17,7 @@ export function RequireRole({ roles, children }: { roles: Role[]; children: Reac
   }, [loading, user, roles, router]);
 
   if (loading || !user || !roles.includes(user.role)) {
-    return <div className="px-4 py-16 text-center text-sm text-foreground/60">Memuat…</div>;
+    return <PageLoader />;
   }
 
   return <>{children}</>;

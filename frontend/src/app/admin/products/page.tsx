@@ -28,11 +28,11 @@ export default function AdminProductsPage() {
   return (
     <div>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-xl font-bold">Produk</h1>
+        <h1 className="text-xl font-bold tracking-tight">Produk</h1>
         <button
           type="button"
           onClick={() => setEditing("new")}
-          className="rounded-md bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark"
+          className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white shadow-soft transition-all hover:-translate-y-0.5 hover:bg-brand-dark hover:shadow-md active:translate-y-0"
         >
           + Tambah Produk
         </button>
@@ -43,16 +43,16 @@ export default function AdminProductsPage() {
         placeholder="Cari produk…"
         defaultValue={search}
         onChange={(e) => setSearch(e.target.value)}
-        className="mt-4 w-full max-w-sm rounded-md border border-border bg-background px-3 py-2 text-sm"
+        className="mt-4 w-full max-w-sm rounded-lg border border-border bg-background px-3.5 py-2.5 text-sm outline-none transition-shadow placeholder:text-foreground/40 focus:border-brand focus:ring-2 focus:ring-brand/25"
       />
 
       {error && <div className="mt-4"><StatusNotice message={error} /></div>}
       {loading && <p className="mt-4 text-sm text-foreground/60">Memuat…</p>}
 
       {!loading && !error && (
-        <div className="mt-4 overflow-x-auto rounded-xl border border-border">
+        <div className="mt-4 overflow-x-auto rounded-2xl border border-border bg-background shadow-soft">
           <table className="w-full text-sm">
-            <thead className="bg-surface text-left text-foreground/60">
+            <thead className="bg-surface/80 text-left text-xs font-semibold uppercase tracking-wide text-foreground/60">
               <tr>
                 <th className="p-3">Nama</th>
                 <th className="p-3">Kategori</th>
@@ -62,7 +62,7 @@ export default function AdminProductsPage() {
             </thead>
             <tbody>
               {items.map((p) => (
-                <tr key={p.id} className="border-t border-border">
+                <tr key={p.id} className="border-t border-border transition-colors hover:bg-surface/50">
                   <td className="p-3">{p.name}</td>
                   <td className="p-3">{p.category?.name ?? "-"}</td>
                   <td className="p-3">{formatIDR(p.price)}</td>

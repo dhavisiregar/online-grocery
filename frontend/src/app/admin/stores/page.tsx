@@ -6,6 +6,7 @@ import { api, ApiError } from "@/lib/api";
 import { Modal } from "@/components/admin/Modal";
 import { StatusNotice } from "@/components/admin/StatusNotice";
 import { StoreForm, type StoreFormValues } from "@/components/admin/StoreForm";
+import { inputClass } from "@/components/auth/AuthCard";
 import type { Store } from "@/types";
 
 export default function AdminStoresPage() {
@@ -60,11 +61,11 @@ export default function AdminStoresPage() {
   return (
     <div>
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold">Toko</h1>
+        <h1 className="text-xl font-bold tracking-tight">Toko</h1>
         <button
           type="button"
           onClick={() => setEditing("new")}
-          className="rounded-md bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark"
+          className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white shadow-soft transition-all hover:-translate-y-0.5 hover:bg-brand-dark hover:shadow-md active:translate-y-0"
         >
           + Tambah Toko
         </button>
@@ -74,9 +75,9 @@ export default function AdminStoresPage() {
       {loading && <p className="mt-4 text-sm text-foreground/60">Memuat…</p>}
 
       {!loading && !error && (
-        <div className="mt-4 overflow-x-auto rounded-xl border border-border">
+        <div className="mt-4 overflow-x-auto rounded-2xl border border-border bg-background shadow-soft">
           <table className="w-full text-sm">
-            <thead className="bg-surface text-left text-foreground/60">
+            <thead className="bg-surface/80 text-left text-xs font-semibold uppercase tracking-wide text-foreground/60">
               <tr>
                 <th className="p-3">Nama</th>
                 <th className="p-3">Kota</th>
@@ -87,7 +88,7 @@ export default function AdminStoresPage() {
             </thead>
             <tbody>
               {stores.map((s) => (
-                <tr key={s.id} className="border-t border-border">
+                <tr key={s.id} className="border-t border-border transition-colors hover:bg-surface/50">
                   <td className="p-3">{s.name}</td>
                   <td className="p-3">{s.city}</td>
                   <td className="p-3">{s.max_distance_km} km</td>
@@ -180,13 +181,13 @@ function AssignAdminModal({
           placeholder="ID Pengguna"
           value={userId}
           onChange={(e) => setUserId(e.target.value)}
-          className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+          className={inputClass}
         />
         {error && <p className="text-sm text-red-600">{error}</p>}
         <button
           type="submit"
           disabled={submitting}
-          className="rounded-md bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark disabled:opacity-60"
+          className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white shadow-soft transition-all hover:-translate-y-0.5 hover:bg-brand-dark hover:shadow-md active:translate-y-0 disabled:opacity-60"
         >
           {submitting ? "Menyimpan…" : "Tempatkan"}
         </button>
