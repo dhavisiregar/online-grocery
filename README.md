@@ -204,6 +204,76 @@ one-line comment on what it needs (e.g. `InventoryHandler.Adjust`,
 are already in place — implementing a feature means filling in the
 handler body against the existing repository/service layers.
 
+## Deploying (free tier: Vercel + Render + Aiven)
+
+This repo is a monorepo (`backend/` + `frontend/`), so each service's "root
+directory" setting matters — don't skip that step below.
+
+**1. Database — [Aiven](https://aiven.io) (free MySQL, no card needed)**
+
+1. Sign up, create a new service → **MySQL**, free plan.
+2. Once it's running, open the service's **Overview** tab for the
+   connection details (host, port, user — usually `avnadmin` — and
+   password), and download the **CA Certificate** from the same page.
+3. Easiest: just use the `defaultdb` database Aiven already created (no
+   extra step). If you'd rather match local dev's `online_grocery` name,
+   connect with any MySQL client and run
+   `CREATE DATABASE online_grocery CHARACTER SET utf8mb4;` first.
+4. ⚠️ Aiven's free tier **powers off after inactivity and does not
+   auto-resume on connection** — you'll get emailed a warning first, but
+   if the app suddenly can't reach the database, log into the Aiven
+   console and power the service back on manually.
+
+**2. Backend — [Render](https://render.com) (free Go web service)**
+
+The repo includes a `render.yaml` blueprint: **New → Blueprint**, point it
+at this GitHub repo, and Render will create the service from it. (Setting
+it up by hand works too — Language: Go, Root Directory: `backend`, Build
+Command: `go build -o app ./cmd/api`, Start Command: `./app`.)
+
+Fill in the env vars the blueprint marks as "set manually":
+
+- `DATABASE_DSN` — from Aiven's connection details, e.g.
+  `avnadmin:PASSWORD@tcp(HOST:PORT)/defaultdb?charset=utf8mb4&parseTime=True&loc=Local&tls=custom`
+  — note the `&tls=custom` at the end, required for step 3.
+- `DATABASE_CA_CERT` — paste the full contents of the `ca.pem` you
+  downloaded from Aiven (multi-line is fine).
+- `FRONTEND_BASE_URL` — the Vercel URL from step 3 below (CORS requires
+  an exact match, so it's fine to come back and fill this in after).
+- `SMTP_*`, `RAJAONGKIR_API_KEY`, `OPENCAGE_API_KEY`, `MIDTRANS_SERVER_KEY`,
+  `MIDTRANS_CLIENT_KEY` — same values as your local `backend/.env`.
+
+Deploy, then note the public URL Render gives you (e.g.
+`https://grocergo-backend.onrender.com`) — `GET /health` should return
+`{"status":"ok"}` once it's live.
+
+⚠️ Render's free web service **sleeps after 15 minutes of no traffic**;
+the next request wakes it up but takes 30-60s. Product photo uploads also
+live on this service's local disk, which is wiped on every sleep/restart/
+redeploy — re-upload product images if they go missing.
+
+**3. Frontend — [Vercel](https://vercel.com)**
+
+Import the repo, set **Root Directory** to `frontend` (Vercel auto-detects
+Next.js, no other config needed). Env vars:
+
+- `NEXT_PUBLIC_API_URL` — the Render URL from step 2.
+- `NEXT_PUBLIC_MIDTRANS_CLIENT_KEY`, `NEXT_PUBLIC_MIDTRANS_IS_PRODUCTION`
+  — same values as your local `frontend/.env.local`.
+
+Deploy, then go back to Render and set `FRONTEND_BASE_URL` to the Vercel
+URL it gives you (e.g. `https://grocergo.vercel.app`), if you hadn't
+already — then redeploy the backend so CORS picks it up.
+
+**4. Optional: real Midtrans webhooks**
+
+Locally, Midtrans can't reach `localhost`, so the app relies on the
+frontend actively polling `GET /api/orders/:id/payment-status` after the
+Snap popup closes. Once deployed, the backend has a real public URL, so
+you can set Midtrans's **Payment Notification URL** (sandbox settings) to
+`https://<your-render-url>/api/payments/midtrans/notification` for actual
+server-to-server webhook delivery instead of relying solely on that poll.
+
 ## Environment variables
 
 See `backend/.env.example` and `frontend/.env.local.example`. Notably:

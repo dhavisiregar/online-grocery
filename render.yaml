@@ -1,0 +1,48 @@
+services:
+  - type: web
+    name: grocergo-backend
+    runtime: go
+    plan: free
+    rootDir: backend
+    buildCommand: go build -o app ./cmd/api
+    startCommand: ./app
+    healthCheckPath: /health
+    envVars:
+      - key: APP_ENV
+        value: production
+      # Render sets PORT itself and the app already reads it — no need to
+      # pin a value here.
+      - key: DATABASE_DSN
+        sync: false # e.g. avnadmin:...@tcp(mysql-xxx.aivencloud.com:12345)/online_grocery?charset=utf8mb4&parseTime=True&loc=Local&tls=custom
+      - key: DATABASE_CA_CERT
+        sync: false # paste the full contents of Aiven's downloaded ca.pem here
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRY_HOURS
+        value: "72"
+      - key: FRONTEND_BASE_URL
+        sync: false # e.g. https://grocergo.vercel.app — must match exactly, used for CORS
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: SMTP_FROM
+        sync: false
+      - key: RAJAONGKIR_API_KEY
+        sync: false
+      - key: OPENCAGE_API_KEY
+        sync: false
+      - key: MIDTRANS_SERVER_KEY
+        sync: false
+      - key: MIDTRANS_CLIENT_KEY
+        sync: false
+      - key: MIDTRANS_ENV
+        value: sandbox
+      - key: UPLOAD_DIR
+        value: ./uploads
+      - key: MAX_UPLOAD_SIZE_MB
+        value: "1"

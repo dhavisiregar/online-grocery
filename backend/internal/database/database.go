@@ -1,14 +1,34 @@
 package database
 
 import (
+	"crypto/tls"
+	"crypto/x509"
+	"fmt"
 	"log"
 
+	mysqldriver "github.com/go-sql-driver/mysql"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
 	"online-grocery/backend/internal/models"
 )
+
+// RegisterCACert registers a custom TLS profile named "custom" for managed
+// MySQL providers (e.g. Aiven) that sign their server certificate with a
+// private CA rather than a publicly-trusted one. DATABASE_DSN must include
+// `?tls=custom` to use it. No-op when caCertPEM is empty, so local/
+// self-hosted MySQL without TLS is unaffected.
+func RegisterCACert(caCertPEM string) error {
+	if caCertPEM == "" {
+		return nil
+	}
+	pool := x509.NewCertPool()
+	if ok := pool.AppendCertsFromPEM([]byte(caCertPEM)); !ok {
+		return fmt.Errorf("failed to parse DATABASE_CA_CERT as a PEM certificate")
+	}
+	return mysqldriver.RegisterTLSConfig("custom", &tls.Config{RootCAs: pool})
+}
 
 func Connect(dsn string) *gorm.DB {
 	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{

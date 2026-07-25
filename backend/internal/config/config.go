@@ -12,6 +12,7 @@ type Config struct {
 	AppEnv            string
 	Port              string
 	DatabaseDSN       string
+	DBCACert          string
 	JWTSecret         string
 	JWTExpiryHours    int
 	FrontendBaseURL   string
@@ -38,6 +39,7 @@ func Load() *Config {
 		AppEnv:            getEnv("APP_ENV", "development"),
 		Port:              getEnv("PORT", "8080"),
 		DatabaseDSN:       getEnv("DATABASE_DSN", "root:password@tcp(127.0.0.1:3306)/online_grocery?charset=utf8mb4&parseTime=True&loc=Local"),
+		DBCACert:          getEnv("DATABASE_CA_CERT", ""),
 		JWTSecret:         getEnv("JWT_SECRET", "change-me-in-production"),
 		JWTExpiryHours:    getEnvInt("JWT_EXPIRY_HOURS", 72),
 		FrontendBaseURL:   getEnv("FRONTEND_BASE_URL", "http://localhost:3000"),

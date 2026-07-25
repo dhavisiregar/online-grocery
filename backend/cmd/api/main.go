@@ -18,6 +18,9 @@ import (
 func main() {
 	cfg := config.Load()
 
+	if err := database.RegisterCACert(cfg.DBCACert); err != nil {
+		log.Fatalf("failed to register database CA cert: %v", err)
+	}
 	db := database.Connect(cfg.DatabaseDSN)
 	if err := database.AutoMigrate(db); err != nil {
 		log.Fatalf("failed to migrate database: %v", err)
