@@ -99,7 +99,7 @@ func (r *OrderRepository) List(f OrderFilter, p utils.Pagination) ([]models.Orde
 		return nil, 0, err
 	}
 
-	var orders []models.Order
+	orders := []models.Order{}
 	err := query.Order(p.Sort + " " + p.Order).Offset(p.Offset()).Limit(p.Limit).Find(&orders).Error
 	return orders, total, err
 }

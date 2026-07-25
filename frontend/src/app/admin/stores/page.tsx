@@ -7,6 +7,7 @@ import { Modal } from "@/components/admin/Modal";
 import { StatusNotice } from "@/components/admin/StatusNotice";
 import { StoreForm, type StoreFormValues } from "@/components/admin/StoreForm";
 import { inputClass } from "@/components/auth/AuthCard";
+import { AssignButton, DeleteButton, EditButton } from "@/components/ui/RowActions";
 import type { Store } from "@/types";
 
 export default function AdminStoresPage() {
@@ -94,16 +95,10 @@ export default function AdminStoresPage() {
                   <td className="p-3">{s.max_distance_km} km</td>
                   <td className="p-3">{s.is_main ? "Ya" : "-"}</td>
                   <td className="p-3">
-                    <div className="flex gap-3">
-                      <button type="button" onClick={() => setEditing(s)} className="text-brand-dark hover:underline">
-                        Edit
-                      </button>
-                      <button type="button" onClick={() => setAssigning(s)} className="text-brand-dark hover:underline">
-                        Tempatkan Admin
-                      </button>
-                      <button type="button" onClick={() => handleDelete(s)} className="text-red-600 hover:underline">
-                        Hapus
-                      </button>
+                    <div className="flex gap-1">
+                      <EditButton onClick={() => setEditing(s)} />
+                      <AssignButton onClick={() => setAssigning(s)} label="Tempatkan Admin" />
+                      <DeleteButton onClick={() => handleDelete(s)} />
                     </div>
                   </td>
                 </tr>

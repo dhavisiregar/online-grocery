@@ -78,6 +78,12 @@ export default function AdminReportsPage() {
   const [products, setProducts] = useState<Product[]>([]);
 
   const [rows, setRows] = useState<unknown[]>([]);
+  // Tracks which report `rows` actually belongs to. Switching tabs updates
+  // `active` a render before the fetch effect flips `loading` back to
+  // true, so without this a stale render can briefly interpret the old
+  // report's rows under the new report's column/key logic — e.g. showing
+  // a CategorySales row's (nonexistent) product_id as a <tr> key.
+  const [rowsActive, setRowsActive] = useState<ReportKey>(REPORTS[0].key);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -96,6 +102,7 @@ export default function AdminReportsPage() {
     queueMicrotask(() => {
       if (requiresStore && isSuperAdmin && !storeId) {
         setRows([]);
+        setRowsActive(active);
         setError(null);
         setLoading(false);
         return;
@@ -109,8 +116,11 @@ export default function AdminReportsPage() {
       };
       if (active === "stock/detail") query.product_id = productFilter || undefined;
 
-      api<{ items: unknown[] }>(`/api/admin/reports/${active}`, { query })
-        .then((res) => setRows(res.items))
+      api<{ items: unknown[] | null }>(`/api/admin/reports/${active}`, { query })
+        .then((res) => {
+          setRows(res.items ?? []);
+          setRowsActive(active);
+        })
         .catch((err) => setError(err instanceof ApiError ? err.message : "Gagal memuat laporan"))
         .finally(() => setLoading(false));
     });
@@ -200,12 +210,12 @@ export default function AdminReportsPage() {
       </div>
 
       <div className="mt-4">
-        {loading && <p className="text-sm text-foreground/60">Memuat…</p>}
-        {!loading && error && <StatusNotice message={error} />}
-        {!loading && !error && requiresStore && isSuperAdmin && !storeId && (
+        {(loading || rowsActive !== active) && <p className="text-sm text-foreground/60">Memuat…</p>}
+        {!loading && rowsActive === active && error && <StatusNotice message={error} />}
+        {!loading && rowsActive === active && !error && requiresStore && isSuperAdmin && !storeId && (
           <StatusNotice message="Pilih toko untuk melihat laporan stok." />
         )}
-        {!loading && !error && (!requiresStore || !isSuperAdmin || storeId > 0) && (
+        {!loading && rowsActive === active && !error && (!requiresStore || !isSuperAdmin || storeId > 0) && (
           <ReportTable active={active} rows={rows} />
         )}
       </div>

@@ -59,7 +59,7 @@ func (r *DiscountRepository) List(storeID uint, p utils.Pagination) ([]models.Di
 		return nil, 0, err
 	}
 
-	var discounts []models.Discount
+	discounts := []models.Discount{}
 	err := query.Order("created_at DESC").Offset(p.Offset()).Limit(p.Limit).Find(&discounts).Error
 	return discounts, total, err
 }
@@ -71,7 +71,7 @@ func (r *DiscountRepository) ActiveForProducts(storeID uint, productIDs []uint, 
 	if len(productIDs) == 0 {
 		return nil, nil
 	}
-	var discounts []models.Discount
+	discounts := []models.Discount{}
 	err := r.db.Where(
 		"store_id = ? AND product_id IN ? AND type IN ? AND start_date <= ? AND end_date >= ?",
 		storeID, productIDs, []models.DiscountType{models.DiscountManual, models.DiscountBOGO}, now, now,

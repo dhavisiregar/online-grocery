@@ -21,7 +21,7 @@ func (r *CategoryRepository) List(p utils.Pagination) ([]models.Category, int64,
 		return nil, 0, err
 	}
 
-	var categories []models.Category
+	categories := []models.Category{}
 	err := r.db.Order(p.Sort + " " + p.Order).
 		Offset(p.Offset()).Limit(p.Limit).
 		Find(&categories).Error

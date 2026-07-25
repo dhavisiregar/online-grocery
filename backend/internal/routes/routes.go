@@ -146,7 +146,11 @@ func registerAdminRoutes(api *gin.RouterGroup, h *Handlers, cfg *config.Config) 
 // store-admin management. Store admins get read-only product/category
 // access via registerAdminRoutes above.
 func registerSuperAdminRoutes(g *gin.RouterGroup, h *Handlers) {
-	g.GET("/users", h.User.ListAll)
+	users := g.Group("/users")
+	users.GET("", h.User.ListAll)
+	users.POST("", h.User.CreateUser)
+	users.PUT("/:id", h.User.UpdateUser)
+	users.DELETE("/:id", h.User.DeleteUser)
 
 	storeAdmins := g.Group("/store-admins")
 	storeAdmins.GET("", h.User.ListStoreAdmins)

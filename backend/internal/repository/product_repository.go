@@ -41,7 +41,7 @@ func (r *ProductRepository) ListByStore(f ProductFilter, p utils.Pagination) ([]
 		return nil, 0, err
 	}
 
-	var products []models.Product
+	products := []models.Product{}
 	err := query.Order(p.Sort + " " + p.Order).
 		Offset(p.Offset()).Limit(p.Limit).
 		Find(&products).Error

@@ -15,7 +15,7 @@ func NewAddressRepository(db *gorm.DB) *AddressRepository {
 }
 
 func (r *AddressRepository) ListByUser(userID uint) ([]models.UserAddress, error) {
-	var addresses []models.UserAddress
+	addresses := []models.UserAddress{}
 	err := r.db.Where("user_id = ?", userID).Order("is_primary DESC, created_at DESC").Find(&addresses).Error
 	return addresses, err
 }

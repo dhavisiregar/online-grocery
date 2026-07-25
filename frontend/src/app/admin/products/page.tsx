@@ -6,6 +6,7 @@ import { usePaginatedApi } from "@/hooks/usePaginatedApi";
 import { PaginationControls, StatusNotice } from "@/components/admin/StatusNotice";
 import { Modal } from "@/components/admin/Modal";
 import { ProductForm } from "@/components/admin/ProductForm";
+import { EditButton, DeleteButton } from "@/components/ui/RowActions";
 import { api, ApiError } from "@/lib/api";
 import { formatIDR } from "@/lib/format";
 import type { Product } from "@/types";
@@ -67,13 +68,9 @@ export default function AdminProductsPage() {
                   <td className="p-3">{p.category?.name ?? "-"}</td>
                   <td className="p-3">{formatIDR(p.price)}</td>
                   <td className="p-3">
-                    <div className="flex gap-3">
-                      <button type="button" onClick={() => setEditing(p)} className="text-brand-dark hover:underline">
-                        Edit
-                      </button>
-                      <button type="button" onClick={() => handleDelete(p)} className="text-red-600 hover:underline">
-                        Hapus
-                      </button>
+                    <div className="flex gap-1">
+                      <EditButton onClick={() => setEditing(p)} />
+                      <DeleteButton onClick={() => handleDelete(p)} />
                     </div>
                   </td>
                 </tr>

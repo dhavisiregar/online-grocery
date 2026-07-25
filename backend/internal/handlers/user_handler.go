@@ -156,6 +156,152 @@ func (h *UserHandler) findStoreAdmin(c *gin.Context) (*models.User, bool) {
 	return user, true
 }
 
+type createUserRequest struct {
+	Name     string      `json:"name" binding:"required,min=2,max=150"`
+	Email    string      `json:"email" binding:"required,email"`
+	Password string      `json:"password" binding:"required,min=8"`
+	Role     models.Role `json:"role" binding:"required,oneof=user store_admin super_admin"`
+}
+
+// CreateUser is admin-provisioned — like CreateStoreAdmin, it skips email
+// verification since the super admin is vouching for the account. This is
+// also the only way to mint a super_admin account; there is no public
+// registration path for that role.
+func (h *UserHandler) CreateUser(c *gin.Context) {
+	var req createUserRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	if _, err := h.users.FindByEmail(req.Email); err == nil {
+		utils.Error(c, http.StatusConflict, "email is already registered")
+		return
+	}
+
+	hash, err := utils.HashPassword(req.Password)
+	if err != nil {
+		utils.Error(c, http.StatusInternalServerError, "failed to create user")
+		return
+	}
+	code, err := utils.ReferralCode(req.Name)
+	if err != nil {
+		utils.Error(c, http.StatusInternalServerError, "failed to create user")
+		return
+	}
+
+	user := &models.User{
+		Name:         req.Name,
+		Email:        req.Email,
+		PasswordHash: &hash,
+		Role:         req.Role,
+		Provider:     models.ProviderEmail,
+		IsVerified:   true,
+		ReferralCode: code,
+	}
+	if err := h.users.Create(user); err != nil {
+		utils.Error(c, http.StatusInternalServerError, "failed to create user")
+		return
+	}
+	utils.Success(c, http.StatusCreated, "user created", user)
+}
+
+type updateUserRequest struct {
+	Name     string      `json:"name" binding:"required,min=2,max=150"`
+	Email    string      `json:"email" binding:"required,email"`
+	Phone    *string     `json:"phone"`
+	Role     models.Role `json:"role" binding:"required,oneof=user store_admin super_admin"`
+	Password string      `json:"password"`
+}
+
+// UpdateUser also handles role transitions. Moving a user *out* of
+// store_admin clears their store assignment — otherwise a demoted user
+// would leave a dangling StoreAdmin row pointing at a store they can no
+// longer manage through. Moving a user *into* store_admin does not assign
+// a store; that's still done from the Stores page ("Tempatkan Admin").
+func (h *UserHandler) UpdateUser(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		utils.Error(c, http.StatusBadRequest, "invalid user id")
+		return
+	}
+	user, err := h.users.FindByID(uint(id))
+	if err != nil {
+		utils.Error(c, http.StatusNotFound, "user not found")
+		return
+	}
+	var req updateUserRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		utils.Error(c, http.StatusBadRequest, err.Error())
+		return
+	}
+	if existing, err := h.users.FindByEmail(req.Email); err == nil && existing.ID != user.ID {
+		utils.Error(c, http.StatusConflict, "email is already registered")
+		return
+	}
+
+	wasStoreAdmin := user.Role == models.RoleStoreAdmin
+	user.Name = req.Name
+	user.Email = req.Email
+	user.Phone = req.Phone
+	user.Role = req.Role
+	if req.Password != "" {
+		if len(req.Password) < 8 {
+			utils.Error(c, http.StatusBadRequest, "password must be at least 8 characters")
+			return
+		}
+		hash, err := utils.HashPassword(req.Password)
+		if err != nil {
+			utils.Error(c, http.StatusInternalServerError, "failed to update user")
+			return
+		}
+		user.PasswordHash = &hash
+	}
+
+	if wasStoreAdmin && req.Role != models.RoleStoreAdmin {
+		if err := h.stores.RemoveAdmin(user.ID); err != nil {
+			utils.Error(c, http.StatusInternalServerError, "failed to update user")
+			return
+		}
+	}
+
+	if err := h.users.Update(user); err != nil {
+		utils.Error(c, http.StatusInternalServerError, "failed to update user")
+		return
+	}
+	utils.Success(c, http.StatusOK, "user updated", user)
+}
+
+// DeleteUser refuses to delete the caller's own account (so an admin can't
+// lock themselves out) and, for a store_admin, clears their store
+// assignment first — same as DeleteStoreAdmin.
+func (h *UserHandler) DeleteUser(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		utils.Error(c, http.StatusBadRequest, "invalid user id")
+		return
+	}
+	if uint(id) == currentUserID(c) {
+		utils.Error(c, http.StatusBadRequest, "cannot delete your own account")
+		return
+	}
+	user, err := h.users.FindByID(uint(id))
+	if err != nil {
+		utils.Error(c, http.StatusNotFound, "user not found")
+		return
+	}
+	if user.Role == models.RoleStoreAdmin {
+		if err := h.stores.RemoveAdmin(user.ID); err != nil {
+			utils.Error(c, http.StatusInternalServerError, "failed to delete user")
+			return
+		}
+	}
+	if err := h.users.Delete(user.ID); err != nil {
+		utils.Error(c, http.StatusConflict, "cannot delete a user with existing activity")
+		return
+	}
+	utils.Success(c, http.StatusOK, "user deleted", nil)
+}
+
 type updateProfileRequest struct {
 	Name  string  `json:"name" binding:"required,min=2,max=150"`
 	Phone *string `json:"phone"`

@@ -437,7 +437,7 @@ func (s *OrderService) SaveAdminTransition(order *models.Order, notes string) er
 }
 
 func (s *OrderService) orderItemsTx(tx *gorm.DB, orderID uint) ([]models.OrderItem, error) {
-	var items []models.OrderItem
+	items := []models.OrderItem{}
 	err := tx.Where("order_id = ?", orderID).Find(&items).Error
 	return items, err
 }

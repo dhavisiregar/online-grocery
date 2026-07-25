@@ -39,7 +39,7 @@ func (s *ReportService) SalesMonthly(storeID uint, year int) ([]MonthlySales, er
 	if storeID != 0 {
 		query = query.Where("store_id = ?", storeID)
 	}
-	var rows []MonthlySales
+	rows := []MonthlySales{}
 	err := query.Group("DATE_FORMAT(created_at, '%Y-%m')").Order("month ASC").Scan(&rows).Error
 	return rows, err
 }
@@ -57,7 +57,7 @@ type CategorySales struct {
 // rather than silently dropping them.
 func (s *ReportService) SalesByCategory(storeID uint, year, month int) ([]CategorySales, error) {
 	query := s.categoryJoinQuery(storeID, year, month)
-	var rows []CategorySales
+	rows := []CategorySales{}
 	err := query.Group("categories.id, categories.name").Order("total DESC").Scan(&rows).Error
 	return rows, err
 }
@@ -100,7 +100,7 @@ func (s *ReportService) SalesByProduct(storeID uint, year, month int) ([]Product
 	if storeID != 0 {
 		query = query.Where("orders.store_id = ?", storeID)
 	}
-	var rows []ProductSales
+	rows := []ProductSales{}
 	err := query.Group("order_items.product_id, order_items.product_name").Order("total DESC").Scan(&rows).Error
 	return rows, err
 }
@@ -122,7 +122,7 @@ func (s *ReportService) StockSummary(storeID uint, year, month int) ([]StockSumm
 	periodStart := time.Date(year, time.Month(month), 1, 0, 0, 0, 0, time.UTC)
 	periodEnd := periodStart.AddDate(0, 1, 0)
 
-	var rows []StockSummaryRow
+	rows := []StockSummaryRow{}
 	err := s.db.Table("store_products").
 		Select(`store_products.product_id as product_id, products.name as product_name,
 			COALESCE(SUM(CASE
@@ -163,7 +163,7 @@ func (s *ReportService) StockDetail(storeID uint, year, month int, productID uin
 	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
-	var journals []models.StockJournal
+	journals := []models.StockJournal{}
 	err := query.Preload("Product").Order(p.Sort + " " + p.Order).Offset(p.Offset()).Limit(p.Limit).Find(&journals).Error
 	return journals, total, err
 }

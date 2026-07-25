@@ -7,6 +7,7 @@ import { PaginationControls, StatusNotice } from "@/components/admin/StatusNotic
 import { Modal } from "@/components/admin/Modal";
 import { DiscountForm } from "@/components/admin/DiscountForm";
 import { VoucherForm } from "@/components/admin/VoucherForm";
+import { EditButton, DeleteButton } from "@/components/ui/RowActions";
 import { useAuth } from "@/contexts/AuthContext";
 import { api, ApiError } from "@/lib/api";
 import { formatIDR } from "@/lib/format";
@@ -116,21 +117,9 @@ export default function AdminDiscountsPage() {
                     {new Date(d.end_date).toLocaleDateString("id-ID")}
                   </td>
                   <td className="p-3">
-                    <div className="flex gap-3">
-                      <button
-                        type="button"
-                        onClick={() => setEditingDiscount(d)}
-                        className="text-brand-dark hover:underline"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteDiscount(d)}
-                        className="text-red-600 hover:underline"
-                      >
-                        Hapus
-                      </button>
+                    <div className="flex gap-1">
+                      <EditButton onClick={() => setEditingDiscount(d)} />
+                      <DeleteButton onClick={() => handleDeleteDiscount(d)} />
                     </div>
                   </td>
                 </tr>

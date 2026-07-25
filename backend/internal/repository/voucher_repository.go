@@ -40,7 +40,7 @@ func (r *VoucherRepository) List(p utils.Pagination) ([]models.Voucher, int64, e
 	if err := r.db.Model(&models.Voucher{}).Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
-	var vouchers []models.Voucher
+	vouchers := []models.Voucher{}
 	err := r.db.Order("created_at DESC").Offset(p.Offset()).Limit(p.Limit).Find(&vouchers).Error
 	return vouchers, total, err
 }
@@ -64,7 +64,7 @@ func (r *VoucherRepository) HasClaimed(userID, voucherID uint) bool {
 }
 
 func (r *VoucherRepository) ListUnusedForUser(userID uint) ([]models.UserVoucher, error) {
-	var claims []models.UserVoucher
+	claims := []models.UserVoucher{}
 	err := r.db.Where("user_id = ? AND is_used = ?", userID, false).
 		Preload("Voucher").Order("created_at DESC").Find(&claims).Error
 	return claims, err

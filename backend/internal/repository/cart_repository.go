@@ -28,7 +28,7 @@ func (r *CartRepository) GetOrCreateCart(userID uint) (*models.Cart, error) {
 }
 
 func (r *CartRepository) ListItems(cartID uint) ([]models.CartItem, error) {
-	var items []models.CartItem
+	items := []models.CartItem{}
 	err := r.db.Where("cart_id = ?", cartID).Preload("Product").Preload("Product.Images").
 		Order("created_at ASC").Find(&items).Error
 	return items, err

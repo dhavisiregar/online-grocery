@@ -63,7 +63,7 @@ func (r *UserRepository) List(role models.Role, p utils.Pagination) ([]models.Us
 		return nil, 0, err
 	}
 
-	var users []models.User
+	users := []models.User{}
 	err := query.Order(p.Sort + " " + p.Order).
 		Offset(p.Offset()).Limit(p.Limit).
 		Find(&users).Error

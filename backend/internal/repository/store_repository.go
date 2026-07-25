@@ -15,7 +15,7 @@ func NewStoreRepository(db *gorm.DB) *StoreRepository {
 }
 
 func (r *StoreRepository) All() ([]models.Store, error) {
-	var stores []models.Store
+	stores := []models.Store{}
 	err := r.db.Find(&stores).Error
 	return stores, err
 }

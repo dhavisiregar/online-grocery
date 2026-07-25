@@ -45,7 +45,7 @@ func (r *InventoryRepository) List(f JournalFilter, p utils.Pagination) ([]model
 		return nil, 0, err
 	}
 
-	var journals []models.StockJournal
+	journals := []models.StockJournal{}
 	err := query.Preload("Product").Order("created_at DESC").Offset(p.Offset()).Limit(p.Limit).Find(&journals).Error
 	return journals, total, err
 }

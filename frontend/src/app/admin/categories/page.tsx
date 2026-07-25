@@ -6,6 +6,7 @@ import { usePaginatedApi } from "@/hooks/usePaginatedApi";
 import { PaginationControls, StatusNotice } from "@/components/admin/StatusNotice";
 import { Modal } from "@/components/admin/Modal";
 import { FormField, inputClass, primaryButtonClass } from "@/components/auth/AuthCard";
+import { EditButton, DeleteButton } from "@/components/ui/RowActions";
 import { api, ApiError } from "@/lib/api";
 import type { Category } from "@/types";
 
@@ -89,13 +90,9 @@ export default function AdminCategoriesPage() {
                 <tr key={c.id} className="border-t border-border transition-colors hover:bg-surface/50">
                   <td className="p-3">{c.name}</td>
                   <td className="p-3">
-                    <div className="flex gap-3">
-                      <button type="button" onClick={() => openEdit(c)} className="text-brand-dark hover:underline">
-                        Edit
-                      </button>
-                      <button type="button" onClick={() => handleDelete(c)} className="text-red-600 hover:underline">
-                        Hapus
-                      </button>
+                    <div className="flex gap-1">
+                      <EditButton onClick={() => openEdit(c)} />
+                      <DeleteButton onClick={() => handleDelete(c)} />
                     </div>
                   </td>
                 </tr>

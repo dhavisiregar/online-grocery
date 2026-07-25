@@ -6,6 +6,7 @@ import { usePaginatedApi } from "@/hooks/usePaginatedApi";
 import { PaginationControls, StatusNotice } from "@/components/admin/StatusNotice";
 import { Modal } from "@/components/admin/Modal";
 import { StoreAdminForm, type StoreAdminFormValues } from "@/components/admin/StoreAdminForm";
+import { EditButton, DeleteButton } from "@/components/ui/RowActions";
 import { api, ApiError } from "@/lib/api";
 import type { User } from "@/types";
 
@@ -84,13 +85,9 @@ export default function AdminStoreAdminsPage() {
                   <td className="p-3">{u.name}</td>
                   <td className="p-3">{u.email}</td>
                   <td className="p-3">
-                    <div className="flex gap-3">
-                      <button type="button" onClick={() => setEditing(u)} className="text-brand-dark hover:underline">
-                        Edit
-                      </button>
-                      <button type="button" onClick={() => handleDelete(u)} className="text-red-600 hover:underline">
-                        Hapus
-                      </button>
+                    <div className="flex gap-1">
+                      <EditButton onClick={() => setEditing(u)} />
+                      <DeleteButton onClick={() => handleDelete(u)} />
                     </div>
                   </td>
                 </tr>
