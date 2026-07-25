@@ -5,6 +5,7 @@ import { useState } from "react";
 
 import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
+import { ThemeToggle } from "@/components/layout/ThemeToggle";
 
 const NAV_LINKS = [
   { href: "/", label: "Beranda" },
@@ -50,19 +51,23 @@ export function Navbar() {
           )}
         </nav>
 
-        <div className="hidden items-center gap-2 md:flex">
+        <div className="hidden items-center gap-1 md:flex">
+          <ThemeToggle />
           <CartLink itemCount={itemCount} />
           <AuthArea user={user} onLogout={logout} />
         </div>
 
-        <button
-          type="button"
-          aria-label="Toggle menu"
-          className="flex h-10 w-10 items-center justify-center rounded-lg border border-border transition-colors hover:bg-surface md:hidden"
-          onClick={() => setOpen((v) => !v)}
-        >
-          <span aria-hidden>{open ? "✕" : "☰"}</span>
-        </button>
+        <div className="flex items-center gap-1 md:hidden">
+          <ThemeToggle />
+          <button
+            type="button"
+            aria-label="Toggle menu"
+            className="flex h-10 w-10 items-center justify-center rounded-lg border border-border transition-colors hover:bg-surface"
+            onClick={() => setOpen((v) => !v)}
+          >
+            <span aria-hidden>{open ? "✕" : "☰"}</span>
+          </button>
+        </div>
       </div>
 
       {open && (
