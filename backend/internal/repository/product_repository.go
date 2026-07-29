@@ -27,7 +27,7 @@ type ProductFilter struct {
 func (r *ProductRepository) ListByStore(f ProductFilter, p utils.Pagination) ([]models.Product, int64, error) {
 	query := r.db.Model(&models.Product{}).
 		Preload("Category").
-		Preload("Images")
+		Preload("Images", func(db *gorm.DB) *gorm.DB { return db.Order("sort_order ASC") })
 
 	if f.CategoryID != 0 {
 		query = query.Where("category_id = ?", f.CategoryID)
@@ -51,7 +51,9 @@ func (r *ProductRepository) ListByStore(f ProductFilter, p utils.Pagination) ([]
 
 func (r *ProductRepository) FindByID(id uint) (*models.Product, error) {
 	var product models.Product
-	err := r.db.Preload("Category").Preload("Images").First(&product, id).Error
+	err := r.db.Preload("Category").
+		Preload("Images", func(db *gorm.DB) *gorm.DB { return db.Order("sort_order ASC") }).
+		First(&product, id).Error
 	if err != nil {
 		return nil, err
 	}
@@ -98,4 +100,19 @@ func (r *ProductRepository) AddImages(images []models.ProductImage) error {
 		return nil
 	}
 	return r.db.Create(&images).Error
+}
+
+// DeleteImage removes a single product image, scoped to productID so an
+// admin can't delete another product's image by guessing its ID. Returns
+// the stored image_url (needed to also remove the file from disk) or
+// gorm.ErrRecordNotFound if no such image belongs to this product.
+func (r *ProductRepository) DeleteImage(productID, imageID uint) (string, error) {
+	var image models.ProductImage
+	if err := r.db.Where("id = ? AND product_id = ?", imageID, productID).First(&image).Error; err != nil {
+		return "", err
+	}
+	if err := r.db.Delete(&image).Error; err != nil {
+		return "", err
+	}
+	return image.ImageURL, nil
 }

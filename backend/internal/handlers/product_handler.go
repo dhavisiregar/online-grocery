@@ -190,7 +190,7 @@ func (h *ProductHandler) Create(c *gin.Context) {
 		return
 	}
 
-	if err := h.attachImages(req.Images, product.ID); err != nil {
+	if err := h.attachImages(req.Images, product.ID, 0); err != nil {
 		utils.Error(c, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -233,7 +233,7 @@ func (h *ProductHandler) Update(c *gin.Context) {
 		return
 	}
 
-	if err := h.attachImages(req.Images, product.ID); err != nil {
+	if err := h.attachImages(req.Images, product.ID, len(product.Images)); err != nil {
 		utils.Error(c, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -255,14 +255,42 @@ func (h *ProductHandler) Delete(c *gin.Context) {
 	utils.Success(c, http.StatusOK, "product deleted", nil)
 }
 
-func (h *ProductHandler) attachImages(headers []*multipart.FileHeader, productID uint) error {
+// attachImages saves newly uploaded files and appends them as product
+// images. startOrder is the sort_order of the first new image — pass the
+// count of images the product already has so new uploads are ordered after
+// (rather than colliding with) existing ones.
+func (h *ProductHandler) attachImages(headers []*multipart.FileHeader, productID uint, startOrder int) error {
 	images := make([]models.ProductImage, 0, len(headers))
 	for i, fh := range headers {
 		url, err := utils.SaveUploadedFileHeader(fh, h.cfg.UploadDir, allowedImageExt, h.cfg.MaxUploadSizeMB)
 		if err != nil {
 			return errors.New(uploadErrorMessage(err))
 		}
-		images = append(images, models.ProductImage{ProductID: productID, ImageURL: url, SortOrder: i})
+		images = append(images, models.ProductImage{ProductID: productID, ImageURL: url, SortOrder: startOrder + i})
 	}
 	return h.products.AddImages(images)
+}
+
+// DeleteImage removes one product image (admin cleanup — e.g. replacing a
+// broken or outdated photo without touching the rest of the gallery).
+func (h *ProductHandler) DeleteImage(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		utils.Error(c, http.StatusBadRequest, "invalid product id")
+		return
+	}
+	imageID, err := strconv.ParseUint(c.Param("imageId"), 10, 64)
+	if err != nil {
+		utils.Error(c, http.StatusBadRequest, "invalid image id")
+		return
+	}
+
+	url, err := h.products.DeleteImage(uint(id), uint(imageID))
+	if err != nil {
+		utils.Error(c, http.StatusNotFound, "image not found")
+		return
+	}
+	utils.DeleteUploadedFile(h.cfg.UploadDir, url)
+
+	utils.Success(c, http.StatusOK, "image deleted", nil)
 }

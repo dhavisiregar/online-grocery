@@ -168,6 +168,7 @@ func registerSuperAdminRoutes(g *gin.RouterGroup, h *Handlers) {
 	products.POST("", h.Product.Create)
 	products.PUT("/:id", h.Product.Update)
 	products.DELETE("/:id", h.Product.Delete)
+	products.DELETE("/:id/images/:imageId", h.Product.DeleteImage)
 
 	categories := g.Group("/categories")
 	categories.POST("", h.Category.Create)

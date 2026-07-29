@@ -81,6 +81,18 @@ func SaveUploadedFileHeader(header *multipart.FileHeader, uploadDir string, allo
 	return "/uploads/" + filename, nil
 }
 
+// DeleteUploadedFile removes a file previously returned by
+// SaveUploadedFile(Header), given its public "/uploads/<name>" path.
+// Best-effort: a missing/already-gone file is not an error worth failing
+// the request over.
+func DeleteUploadedFile(uploadDir, publicPath string) {
+	name := strings.TrimPrefix(publicPath, "/uploads/")
+	if name == "" || name == publicPath {
+		return
+	}
+	_ = os.Remove(filepath.Join(uploadDir, name))
+}
+
 func containsExt(allowed []string, ext string) bool {
 	for _, a := range allowed {
 		if a == ext {
