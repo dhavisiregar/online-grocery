@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { api, ApiError } from "@/lib/api";
+import { confirmDelete } from "@/lib/alerts";
 import { RequireAuth } from "@/components/auth/RequireAuth";
 import { AddressCard } from "@/components/address/AddressCard";
 import { AddressForm, type AddressFormValues } from "@/components/address/AddressForm";
@@ -52,7 +53,7 @@ function AddressesContent() {
   }
 
   async function handleDelete(address: UserAddress) {
-    if (!window.confirm(`Hapus alamat "${address.label}"?`)) return;
+    if (!(await confirmDelete(`Hapus alamat "${address.label}"?`))) return;
     await api(`/api/addresses/${address.id}`, { method: "DELETE" }).catch(() => null);
     load();
   }

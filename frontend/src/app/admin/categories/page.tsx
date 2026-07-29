@@ -8,6 +8,7 @@ import { Modal } from "@/components/admin/Modal";
 import { FormField, inputClass, primaryButtonClass } from "@/components/auth/AuthCard";
 import { EditButton, DeleteButton } from "@/components/ui/RowActions";
 import { api, ApiError } from "@/lib/api";
+import { confirmDelete, notifyError } from "@/lib/alerts";
 import type { Category } from "@/types";
 
 export default function AdminCategoriesPage() {
@@ -51,12 +52,12 @@ export default function AdminCategoriesPage() {
   }
 
   async function handleDelete(category: Category) {
-    if (!window.confirm(`Hapus kategori "${category.name}"?`)) return;
+    if (!(await confirmDelete(`Hapus kategori "${category.name}"?`))) return;
     try {
       await api(`/api/admin/categories/${category.id}`, { method: "DELETE" });
       reload();
     } catch (err) {
-      alert(err instanceof ApiError ? err.message : "Gagal menghapus kategori");
+      notifyError(err instanceof ApiError ? err.message : "Gagal menghapus kategori");
     }
   }
 

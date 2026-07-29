@@ -10,6 +10,7 @@ import { VoucherForm } from "@/components/admin/VoucherForm";
 import { EditButton, DeleteButton } from "@/components/ui/RowActions";
 import { useAuth } from "@/contexts/AuthContext";
 import { api, ApiError } from "@/lib/api";
+import { confirmDelete, notifyError } from "@/lib/alerts";
 import { formatIDR } from "@/lib/format";
 import {
   DISCOUNT_TYPE_LABEL,
@@ -45,12 +46,12 @@ export default function AdminDiscountsPage() {
   }, [isSuperAdmin]);
 
   async function handleDeleteDiscount(discount: Discount) {
-    if (!window.confirm("Hapus diskon ini?")) return;
+    if (!(await confirmDelete("Hapus diskon ini?"))) return;
     try {
       await api(`/api/admin/discounts/${discount.id}`, { method: "DELETE" });
       discounts.reload();
     } catch (err) {
-      alert(err instanceof ApiError ? err.message : "Gagal menghapus diskon");
+      notifyError(err instanceof ApiError ? err.message : "Gagal menghapus diskon");
     }
   }
 

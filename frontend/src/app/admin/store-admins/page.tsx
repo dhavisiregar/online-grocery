@@ -8,6 +8,7 @@ import { Modal } from "@/components/admin/Modal";
 import { StoreAdminForm, type StoreAdminFormValues } from "@/components/admin/StoreAdminForm";
 import { EditButton, DeleteButton } from "@/components/ui/RowActions";
 import { api, ApiError } from "@/lib/api";
+import { confirmDelete, notifyError } from "@/lib/alerts";
 import type { User } from "@/types";
 
 export default function AdminStoreAdminsPage() {
@@ -39,12 +40,12 @@ export default function AdminStoreAdminsPage() {
   }
 
   async function handleDelete(user: User) {
-    if (!window.confirm(`Hapus store admin "${user.name}"?`)) return;
+    if (!(await confirmDelete(`Hapus store admin "${user.name}"?`))) return;
     try {
       await api(`/api/admin/store-admins/${user.id}`, { method: "DELETE" });
       reload();
     } catch (err) {
-      alert(err instanceof ApiError ? err.message : "Gagal menghapus store admin");
+      notifyError(err instanceof ApiError ? err.message : "Gagal menghapus store admin");
     }
   }
 

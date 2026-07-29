@@ -3,8 +3,9 @@
 import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 
 import { FormField, inputClass, primaryButtonClass } from "@/components/auth/AuthCard";
-import { api, getToken } from "@/lib/api";
-import type { Category, Product } from "@/types";
+import { api, getToken, resolveUploadUrl, ApiError } from "@/lib/api";
+import { confirmDelete } from "@/lib/alerts";
+import type { Category, Product, ProductImage } from "@/types";
 
 const ALLOWED_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp"];
 const MAX_SIZE_BYTES = 1 * 1024 * 1024;
@@ -24,6 +25,8 @@ export function ProductForm({
   const [price, setPrice] = useState(initial?.price ?? 0);
   const [weightGrams, setWeightGrams] = useState(initial?.weight_grams ?? 1000);
   const [images, setImages] = useState<File[]>([]);
+  const [existingImages, setExistingImages] = useState<ProductImage[]>(initial?.images ?? []);
+  const [deletingImageId, setDeletingImageId] = useState<number | null>(null);
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
   const [message, setMessage] = useState<string | null>(null);
 
@@ -47,6 +50,19 @@ export function ProductForm({
     }
     setMessage(null);
     setImages(files);
+  }
+
+  async function handleDeleteImage(image: ProductImage) {
+    if (!initial || !(await confirmDelete("Hapus foto ini?"))) return;
+    setDeletingImageId(image.id);
+    try {
+      await api(`/api/admin/products/${initial.id}/images/${image.id}`, { method: "DELETE" });
+      setExistingImages((prev) => prev.filter((img) => img.id !== image.id));
+    } catch (err) {
+      setMessage(err instanceof ApiError ? err.message : "Gagal menghapus foto");
+    } finally {
+      setDeletingImageId(null);
+    }
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -130,6 +146,27 @@ export function ProductForm({
           className={inputClass}
         />
       </FormField>
+      {existingImages.length > 0 && (
+        <FormField label="Foto Saat Ini">
+          <div className="flex flex-wrap gap-3">
+            {existingImages.map((image) => (
+              <div key={image.id} className="group relative h-20 w-20 overflow-hidden rounded-lg border border-border bg-surface">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={resolveUploadUrl(image.image_url)} alt="" className="h-full w-full object-cover" />
+                <button
+                  type="button"
+                  onClick={() => handleDeleteImage(image)}
+                  disabled={deletingImageId === image.id}
+                  aria-label="Hapus foto"
+                  className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-xs text-white opacity-0 transition-opacity group-hover:opacity-100 disabled:opacity-100"
+                >
+                  {deletingImageId === image.id ? "…" : "×"}
+                </button>
+              </div>
+            ))}
+          </div>
+        </FormField>
+      )}
       <FormField label={initial ? "Tambah Foto Produk (opsional)" : "Foto Produk"}>
         <input
           type="file"

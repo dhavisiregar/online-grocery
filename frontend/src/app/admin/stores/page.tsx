@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { api, ApiError } from "@/lib/api";
+import { confirmDelete, notifyError } from "@/lib/alerts";
 import { Modal } from "@/components/admin/Modal";
 import { StatusNotice } from "@/components/admin/StatusNotice";
 import { StoreForm, type StoreFormValues } from "@/components/admin/StoreForm";
@@ -50,12 +51,12 @@ export default function AdminStoresPage() {
   }
 
   async function handleDelete(store: Store) {
-    if (!window.confirm(`Hapus toko "${store.name}"?`)) return;
+    if (!(await confirmDelete(`Hapus toko "${store.name}"?`))) return;
     try {
       await api(`/api/admin/stores/${store.id}`, { method: "DELETE" });
       load();
     } catch (err) {
-      alert(err instanceof ApiError ? err.message : "Gagal menghapus toko");
+      notifyError(err instanceof ApiError ? err.message : "Gagal menghapus toko");
     }
   }
 

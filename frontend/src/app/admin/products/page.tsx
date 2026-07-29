@@ -8,6 +8,7 @@ import { Modal } from "@/components/admin/Modal";
 import { ProductForm } from "@/components/admin/ProductForm";
 import { EditButton, DeleteButton } from "@/components/ui/RowActions";
 import { api, ApiError } from "@/lib/api";
+import { confirmDelete, notifyError } from "@/lib/alerts";
 import { formatIDR } from "@/lib/format";
 import type { Product } from "@/types";
 
@@ -17,12 +18,12 @@ export default function AdminProductsPage() {
   const [editing, setEditing] = useState<Product | "new" | null>(null);
 
   async function handleDelete(product: Product) {
-    if (!window.confirm(`Hapus produk "${product.name}"?`)) return;
+    if (!(await confirmDelete(`Hapus produk "${product.name}"?`))) return;
     try {
       await api(`/api/admin/products/${product.id}`, { method: "DELETE" });
       reload();
     } catch (err) {
-      alert(err instanceof ApiError ? err.message : "Gagal menghapus produk");
+      notifyError(err instanceof ApiError ? err.message : "Gagal menghapus produk");
     }
   }
 

@@ -9,6 +9,7 @@ import { UserForm, type UserFormValues } from "@/components/admin/UserForm";
 import { EditButton, DeleteButton } from "@/components/ui/RowActions";
 import { useAuth } from "@/contexts/AuthContext";
 import { api, ApiError } from "@/lib/api";
+import { confirmDelete, notifyError } from "@/lib/alerts";
 import type { User } from "@/types";
 
 const ROLE_LABEL: Record<User["role"], string> = {
@@ -51,12 +52,12 @@ export default function AdminUsersPage() {
   }
 
   async function handleDelete(user: User) {
-    if (!window.confirm(`Hapus pengguna "${user.name}"?`)) return;
+    if (!(await confirmDelete(`Hapus pengguna "${user.name}"?`))) return;
     try {
       await api(`/api/admin/users/${user.id}`, { method: "DELETE" });
       reload();
     } catch (err) {
-      alert(err instanceof ApiError ? err.message : "Gagal menghapus pengguna");
+      notifyError(err instanceof ApiError ? err.message : "Gagal menghapus pengguna");
     }
   }
 
