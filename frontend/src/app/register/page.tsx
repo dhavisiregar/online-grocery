@@ -4,12 +4,8 @@ import { useState, type FormEvent } from "react";
 import Link from "next/link";
 
 import { api, ApiError } from "@/lib/api";
-import {
-  AuthCard,
-  FormField,
-  inputClass,
-  primaryButtonClass,
-} from "@/components/auth/AuthCard";
+import { FormField, inputClass, primaryButtonClass } from "@/components/auth/AuthCard";
+import { AuthSplitLayout } from "@/components/auth/AuthSplitLayout";
 
 export default function RegisterPage() {
   const [name, setName] = useState("");
@@ -39,7 +35,7 @@ export default function RegisterPage() {
 
   if (status === "done") {
     return (
-      <AuthCard title="Cek email Anda" subtitle="Registrasi berhasil">
+      <AuthSplitLayout title="Cek email Anda" subtitle="Registrasi berhasil">
         <p className="text-sm text-foreground/70">
           Kami telah mengirimkan tautan verifikasi ke <strong>{email}</strong>.
           Tautan berlaku selama 1 jam dan digunakan sekaligus untuk membuat
@@ -51,12 +47,12 @@ export default function RegisterPage() {
         >
           Kembali ke halaman masuk
         </Link>
-      </AuthCard>
+      </AuthSplitLayout>
     );
   }
 
   return (
-    <AuthCard
+    <AuthSplitLayout
       title="Buat Akun"
       subtitle="Daftar untuk mulai berbelanja di GrocerGo"
     >
@@ -65,6 +61,7 @@ export default function RegisterPage() {
           <input
             required
             minLength={2}
+            autoComplete="name"
             value={name}
             onChange={(e) => setName(e.target.value)}
             className={inputClass}
@@ -74,6 +71,7 @@ export default function RegisterPage() {
           <input
             required
             type="email"
+            autoComplete="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className={inputClass}
@@ -100,15 +98,12 @@ export default function RegisterPage() {
         </button>
       </form>
 
-      <p className="mt-4 text-center text-sm text-foreground/60">
+      <p className="mt-6 border-t border-border pt-6 text-center text-sm text-foreground/60">
         Sudah punya akun?{" "}
-        <Link
-          href="/login"
-          className="font-medium text-brand-dark hover:underline"
-        >
+        <Link href="/login" className="font-semibold text-brand-dark hover:underline">
           Masuk
         </Link>
       </p>
-    </AuthCard>
+    </AuthSplitLayout>
   );
 }
