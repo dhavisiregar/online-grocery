@@ -71,6 +71,14 @@ func (r *UserRepository) List(role models.Role, p utils.Pagination) ([]models.Us
 	return users, total, err
 }
 
+// AllIDsByRole lists every user id with the given role, unpaginated — used
+// to broadcast a promo notification storewide.
+func (r *UserRepository) AllIDsByRole(role models.Role) ([]uint, error) {
+	var ids []uint
+	err := r.db.Model(&models.User{}).Where("role = ?", role).Pluck("id", &ids).Error
+	return ids, err
+}
+
 func (r *UserRepository) CreateEmailVerificationToken(t *models.EmailVerificationToken) error {
 	return r.db.Create(t).Error
 }

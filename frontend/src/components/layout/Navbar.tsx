@@ -1,11 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 
 import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
+import { useLoyalty } from "@/contexts/LoyaltyContext";
+import { useNotifications } from "@/contexts/NotificationContext";
+import { useWishlist } from "@/contexts/WishlistContext";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
+import type { LoyaltyTier, Notification } from "@/types";
+
+const TIER_ICON: Record<LoyaltyTier, string> = { bronze: "🥉", silver: "🥈", gold: "🥇" };
 
 const NAV_LINKS = [
   { href: "/", label: "Beranda" },
@@ -16,6 +23,9 @@ export function Navbar() {
   const [open, setOpen] = useState(false);
   const { user, logout } = useAuth();
   const { itemCount } = useCart();
+  const { count: wishlistCount } = useWishlist();
+  const { unreadCount } = useNotifications();
+  const { summary: loyalty } = useLoyalty();
   const isAdmin = user?.role === "super_admin" || user?.role === "store_admin";
 
   return (
@@ -53,6 +63,9 @@ export function Navbar() {
 
         <div className="hidden items-center gap-1 md:flex">
           <ThemeToggle />
+          {user && loyalty && <LoyaltyBadge summary={loyalty} />}
+          {user && <NotificationBell />}
+          <WishlistLink count={wishlistCount} />
           <CartLink itemCount={itemCount} />
           <AuthArea user={user} onLogout={logout} />
         </div>
@@ -92,6 +105,31 @@ export function Navbar() {
                 Admin
               </Link>
             )}
+            {user && loyalty && (
+              <Link
+                href="/account/loyalty"
+                className="rounded-lg px-3 py-2.5 text-sm font-medium transition-colors hover:bg-surface"
+                onClick={() => setOpen(false)}
+              >
+                {TIER_ICON[loyalty.tier]} {loyalty.points} poin
+              </Link>
+            )}
+            {user && (
+              <Link
+                href="/notifications"
+                className="rounded-lg px-3 py-2.5 text-sm font-medium transition-colors hover:bg-surface"
+                onClick={() => setOpen(false)}
+              >
+                Notifikasi {unreadCount > 0 && `(${unreadCount})`}
+              </Link>
+            )}
+            <Link
+              href="/wishlist"
+              className="rounded-lg px-3 py-2.5 text-sm font-medium transition-colors hover:bg-surface"
+              onClick={() => setOpen(false)}
+            >
+              Wishlist {wishlistCount > 0 && `(${wishlistCount})`}
+            </Link>
             <Link
               href="/cart"
               className="rounded-lg px-3 py-2.5 text-sm font-medium transition-colors hover:bg-surface"
@@ -123,6 +161,124 @@ function CartLink({ itemCount }: { itemCount: number }) {
         </span>
       )}
     </Link>
+  );
+}
+
+function WishlistLink({ count }: { count: number }) {
+  return (
+    <Link
+      href="/wishlist"
+      className="relative rounded-lg px-3 py-2 text-sm font-medium text-foreground/80 transition-colors hover:bg-surface hover:text-brand-dark"
+      aria-label="Wishlist"
+    >
+      <span aria-hidden>❤️ Wishlist</span>
+      {count > 0 && (
+        <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-brand px-1 text-xs font-semibold text-white shadow-soft">
+          {count}
+        </span>
+      )}
+    </Link>
+  );
+}
+
+function LoyaltyBadge({ summary }: { summary: NonNullable<ReturnType<typeof useLoyalty>["summary"]> }) {
+  return (
+    <Link
+      href="/account/loyalty"
+      className="flex items-center gap-1 rounded-lg px-3 py-2 text-sm font-medium text-foreground/80 transition-colors hover:bg-surface hover:text-brand-dark"
+      aria-label="Poin loyalty"
+    >
+      <span aria-hidden>{TIER_ICON[summary.tier]}</span>
+      {summary.points} poin
+    </Link>
+  );
+}
+
+function NotificationBell() {
+  const router = useRouter();
+  const { unreadCount, recent, markAsRead, markAllAsRead } = useNotifications();
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function onClickOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, []);
+
+  async function handleClickNotification(n: Notification) {
+    setOpen(false);
+    if (!n.is_read) await markAsRead(n.id);
+    if (n.type === "order_status" && n.related_id) {
+      router.push(`/orders/${n.related_id}`);
+    } else if (n.type === "promo" && n.related_id) {
+      router.push(`/products/${n.related_id}`);
+    } else {
+      router.push("/notifications");
+    }
+  }
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-label="Notifikasi"
+        className="relative rounded-lg px-3 py-2 text-sm font-medium text-foreground/80 transition-colors hover:bg-surface hover:text-brand-dark"
+      >
+        <span aria-hidden>🔔</span>
+        {unreadCount > 0 && (
+          <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-brand px-1 text-xs font-semibold text-white shadow-soft">
+            {unreadCount > 99 ? "99+" : unreadCount}
+          </span>
+        )}
+      </button>
+
+      {open && (
+        <div className="animate-slide-up absolute right-0 top-full z-50 mt-2 w-80 overflow-hidden rounded-2xl border border-border bg-background shadow-soft-lg">
+          <div className="flex items-center justify-between border-b border-border p-3">
+            <span className="text-sm font-semibold">Notifikasi</span>
+            {unreadCount > 0 && (
+              <button
+                type="button"
+                onClick={() => markAllAsRead()}
+                className="text-xs font-medium text-brand-dark hover:underline"
+              >
+                Tandai semua dibaca
+              </button>
+            )}
+          </div>
+          <div className="max-h-96 overflow-y-auto">
+            {recent.length === 0 ? (
+              <p className="p-4 text-center text-sm text-foreground/60">Belum ada notifikasi.</p>
+            ) : (
+              recent.map((n) => (
+                <button
+                  key={n.id}
+                  type="button"
+                  onClick={() => handleClickNotification(n)}
+                  className={`flex w-full flex-col gap-0.5 border-b border-border px-3 py-2.5 text-left text-sm transition-colors last:border-b-0 hover:bg-surface ${
+                    n.is_read ? "" : "bg-brand-light/40"
+                  }`}
+                >
+                  <span className="font-medium">{n.title}</span>
+                  <span className="line-clamp-2 text-xs text-foreground/60">{n.body}</span>
+                </button>
+              ))
+            )}
+          </div>
+          <Link
+            href="/notifications"
+            onClick={() => setOpen(false)}
+            className="block border-t border-border p-2.5 text-center text-sm font-medium text-brand-dark hover:bg-surface"
+          >
+            Lihat semua
+          </Link>
+        </div>
+      )}
+    </div>
   );
 }
 

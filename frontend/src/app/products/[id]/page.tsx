@@ -10,6 +10,9 @@ import { useCart } from "@/contexts/CartContext";
 import { formatIDR } from "@/lib/format";
 import type { ProductWithStock } from "@/types";
 import { AddToCartPanel } from "@/components/product/AddToCartPanel";
+import { WishlistButton } from "@/components/product/WishlistButton";
+import { ProductReviews } from "@/components/product/ProductReviews";
+import { StarRating } from "@/components/ui/StarRating";
 
 export default function ProductDetailPage() {
   const params = useParams<{ id: string }>();
@@ -23,7 +26,9 @@ export default function ProductDetailPage() {
   useEffect(() => {
     queueMicrotask(() => {
       setLoading(true);
-      api<ProductWithStock>(`/api/products/${params.id}`, { auth: false })
+      // No RequireAuth on this route — sending the token when present just
+      // lets the backend fold in is_wishlisted for a logged-in shopper.
+      api<ProductWithStock>(`/api/products/${params.id}`)
         .then(setItem)
         .catch((err) => setError(err instanceof ApiError ? err.message : "Gagal memuat produk"))
         .finally(() => setLoading(false));
@@ -67,7 +72,18 @@ export default function ProductDetailPage() {
               {product.category.name}
             </span>
           )}
-          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{product.name}</h1>
+          <div className="flex items-start justify-between gap-3">
+            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{product.name}</h1>
+            <WishlistButton productId={product.id} initialWishlisted={item.is_wishlisted} className="shrink-0" />
+          </div>
+          {item.review_count > 0 && (
+            <div className="flex items-center gap-2">
+              <StarRating value={Math.round(item.average_rating)} size="sm" />
+              <span className="text-sm text-foreground/60">
+                {item.average_rating.toFixed(1)} ({item.review_count} ulasan)
+              </span>
+            </div>
+          )}
           <div>
             {hasDiscount && (
               <p className="text-sm text-foreground/40 line-through">{formatIDR(product.price)}</p>
@@ -91,6 +107,8 @@ export default function ProductDetailPage() {
           </div>
         </div>
       </div>
+
+      <ProductReviews productId={product.id} canReview={item.can_review} />
     </div>
   );
 }

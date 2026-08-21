@@ -21,11 +21,13 @@ type ProductHandler struct {
 	products  *repository.ProductRepository
 	stores    *service.StoreService
 	discounts *service.DiscountService
+	wishlist  *service.WishlistService
+	reviews   *service.ReviewService
 	cfg       *config.Config
 }
 
-func NewProductHandler(products *repository.ProductRepository, stores *service.StoreService, discounts *service.DiscountService, cfg *config.Config) *ProductHandler {
-	return &ProductHandler{products: products, stores: stores, discounts: discounts, cfg: cfg}
+func NewProductHandler(products *repository.ProductRepository, stores *service.StoreService, discounts *service.DiscountService, wishlist *service.WishlistService, reviews *service.ReviewService, cfg *config.Config) *ProductHandler {
+	return &ProductHandler{products: products, stores: stores, discounts: discounts, wishlist: wishlist, reviews: reviews, cfg: cfg}
 }
 
 type productWithStock struct {
@@ -33,6 +35,13 @@ type productWithStock struct {
 	Stock          int         `json:"stock"`
 	StoreID        uint        `json:"store_id"`
 	EffectivePrice *float64    `json:"effective_price,omitempty"`
+	IsWishlisted   bool        `json:"is_wishlisted"`
+	AverageRating  float64     `json:"average_rating"`
+	ReviewCount    int64       `json:"review_count"`
+	// CanReview is only ever computed on the Detail response (it needs one
+	// extra query per product, cheap for one product, not for a whole
+	// listing page) — nil on List rather than a misleading false.
+	CanReview *bool `json:"can_review,omitempty"`
 }
 
 // List returns the catalog for the shopper's resolved store (nearest, or an
@@ -62,10 +71,25 @@ func (h *ProductHandler) List(c *gin.Context) {
 		return
 	}
 
+	ids := make([]uint, len(products))
+	for i, prod := range products {
+		ids[i] = prod.ID
+	}
+	wishlisted := h.wishlist.WishlistedSet(currentUserID(c), ids)
+	ratings := h.reviews.BulkRatingSummary(ids)
+
 	items := make([]productWithStock, 0, len(products))
 	for _, prod := range products {
 		stock, _ := h.products.StockAt(storeID, prod.ID)
-		items = append(items, productWithStock{Product: prod, Stock: stock, StoreID: storeID})
+		rating := ratings[prod.ID]
+		items = append(items, productWithStock{
+			Product:       prod,
+			Stock:         stock,
+			StoreID:       storeID,
+			IsWishlisted:  wishlisted[prod.ID],
+			AverageRating: rating.Average,
+			ReviewCount:   rating.Count,
+		})
 	}
 
 	p.Total = total
@@ -144,8 +168,18 @@ func (h *ProductHandler) Detail(c *gin.Context) {
 	}
 
 	stock, _ := h.products.StockAt(storeID, product.ID)
+	rating, _ := h.reviews.RatingSummary(product.ID)
+	canReview := h.reviews.CanUserReview(currentUserID(c), product.ID)
 
-	resp := productWithStock{Product: product, Stock: stock, StoreID: storeID}
+	resp := productWithStock{
+		Product:       product,
+		Stock:         stock,
+		StoreID:       storeID,
+		IsWishlisted:  h.wishlist.IsWishlisted(currentUserID(c), product.ID),
+		AverageRating: rating.Average,
+		ReviewCount:   rating.Count,
+		CanReview:     &canReview,
+	}
 	if effective, hasDiscount, err := h.discounts.EffectivePrice(storeID, product.ID, product.Price); err == nil && hasDiscount {
 		resp.EffectivePrice = &effective
 	}

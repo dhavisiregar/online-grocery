@@ -7,8 +7,15 @@ import Link from "next/link";
 import { api, ApiError } from "@/lib/api";
 import { RequireAuth } from "@/components/auth/RequireAuth";
 import { primaryButtonClass } from "@/components/auth/AuthCard";
+import { useLoyalty } from "@/contexts/LoyaltyContext";
+import { notifyError, notifySuccess } from "@/lib/alerts";
 import { formatIDR } from "@/lib/format";
 import type { CartItem, Order, PricingPreview, ProductWithStock, ShippingOption, UserAddress, UserVoucher } from "@/types";
+
+// Must match backend service.MinRedeemPoints / RupiahPerRedeemedPoint —
+// redemption always happens in whole multiples of this, at this value.
+const MIN_REDEEM_POINTS = 100;
+const RUPIAH_PER_REDEEMED_POINT = 100;
 
 export default function CheckoutPage() {
   return (
@@ -36,6 +43,8 @@ function CheckoutContent() {
   const [selected, setSelected] = useState<ShippingOption | null>(null);
   const [vouchers, setVouchers] = useState<UserVoucher[]>([]);
   const [voucherId, setVoucherId] = useState<number | null>(null);
+  const { summary: loyalty, refresh: refreshLoyalty } = useLoyalty();
+  const [redeeming, setRedeeming] = useState(false);
   const [pricing, setPricing] = useState<PricingPreview | null>(null);
   const [pricingError, setPricingError] = useState<string | null>(null);
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
@@ -162,6 +171,25 @@ function CheckoutContent() {
     }
   }
 
+  async function handleRedeemPoints() {
+    if (!loyalty) return;
+    const redeemable = Math.floor(loyalty.points / MIN_REDEEM_POINTS) * MIN_REDEEM_POINTS;
+    if (redeemable < MIN_REDEEM_POINTS) return;
+
+    setRedeeming(true);
+    try {
+      await api("/api/loyalty/redeem", { method: "POST", body: { points: redeemable } });
+      notifySuccess(`${redeemable} poin ditukar menjadi voucher.`);
+      const res = await api<{ items: UserVoucher[] }>("/api/vouchers/mine");
+      setVouchers(res.items);
+      refreshLoyalty();
+    } catch (err) {
+      notifyError(err instanceof ApiError ? err.message : "Gagal menukar poin");
+    } finally {
+      setRedeeming(false);
+    }
+  }
+
   if (items && items.length === 0) {
     return (
       <div className="mx-auto max-w-2xl px-4 py-16 text-center">
@@ -278,6 +306,26 @@ function CheckoutContent() {
         </Section>
 
         <Section title="Voucher">
+          {loyalty && loyalty.points >= MIN_REDEEM_POINTS && (
+            <div className="mb-3 flex items-center justify-between gap-3 rounded-xl border border-dashed border-brand/40 bg-brand-light/20 p-3.5 text-sm">
+              <span>
+                Anda punya <span className="font-semibold">{loyalty.points} poin</span> — tukar{" "}
+                {Math.floor(loyalty.points / MIN_REDEEM_POINTS) * MIN_REDEEM_POINTS} poin jadi voucher{" "}
+                {formatIDR(
+                  Math.floor(loyalty.points / MIN_REDEEM_POINTS) * MIN_REDEEM_POINTS * RUPIAH_PER_REDEEMED_POINT,
+                )}
+                .
+              </span>
+              <button
+                type="button"
+                onClick={handleRedeemPoints}
+                disabled={redeeming}
+                className="shrink-0 rounded-lg bg-brand px-3 py-1.5 text-xs font-semibold text-white shadow-soft transition-all hover:-translate-y-0.5 hover:bg-brand-dark disabled:opacity-60"
+              >
+                {redeeming ? "Menukar…" : "Tukar Poin"}
+              </button>
+            </div>
+          )}
           {vouchers.length === 0 ? (
             <p className="text-sm text-foreground/60">
               Belum ada voucher tersimpan.{" "}

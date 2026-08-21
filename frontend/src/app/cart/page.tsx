@@ -12,7 +12,7 @@ import type { CartItem } from "@/types";
 
 export default function CartPage() {
   return (
-    <RequireAuth>
+    <RequireAuth redirectToLogin>
       <CartContent />
     </RequireAuth>
   );

@@ -2,6 +2,7 @@ package service
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -11,25 +12,62 @@ import (
 )
 
 var (
-	ErrDiscountNotFound     = errors.New("diskon tidak ditemukan")
-	ErrInvalidDiscount      = errors.New("data diskon tidak valid")
-	ErrVoucherNotFound      = errors.New("voucher tidak ditemukan atau sudah kedaluwarsa")
+	ErrDiscountNotFound      = errors.New("diskon tidak ditemukan")
+	ErrInvalidDiscount       = errors.New("data diskon tidak valid")
+	ErrVoucherNotFound       = errors.New("voucher tidak ditemukan atau sudah kedaluwarsa")
 	ErrVoucherAlreadyClaimed = errors.New("voucher sudah pernah diklaim")
-	ErrVoucherNotOwned      = errors.New("voucher tidak ditemukan")
-	ErrVoucherAlreadyUsed   = errors.New("voucher sudah digunakan")
-	ErrVoucherMinPurchase   = errors.New("belanja belum mencapai minimum voucher ini")
-	ErrVoucherWrongProduct  = errors.New("voucher ini hanya berlaku untuk produk tertentu")
+	ErrVoucherNotOwned       = errors.New("voucher tidak ditemukan")
+	ErrVoucherAlreadyUsed    = errors.New("voucher sudah digunakan")
+	ErrVoucherMinPurchase    = errors.New("belanja belum mencapai minimum voucher ini")
+	ErrVoucherWrongProduct   = errors.New("voucher ini hanya berlaku untuk produk tertentu")
 
 	loyaltyOrderThreshold = int64(3)
 )
 
 type DiscountService struct {
-	discounts *repository.DiscountRepository
-	vouchers  *repository.VoucherRepository
+	discounts     *repository.DiscountRepository
+	vouchers      *repository.VoucherRepository
+	wishlists     *repository.WishlistRepository
+	users         *repository.UserRepository
+	notifications *NotificationService
 }
 
-func NewDiscountService(discounts *repository.DiscountRepository, vouchers *repository.VoucherRepository) *DiscountService {
-	return &DiscountService{discounts: discounts, vouchers: vouchers}
+func NewDiscountService(
+	discounts *repository.DiscountRepository,
+	vouchers *repository.VoucherRepository,
+	wishlists *repository.WishlistRepository,
+	users *repository.UserRepository,
+	notifications *NotificationService,
+) *DiscountService {
+	return &DiscountService{
+		discounts: discounts, vouchers: vouchers, wishlists: wishlists,
+		users: users, notifications: notifications,
+	}
+}
+
+// notifyPromo announces a newly activated discount/voucher: to shoppers who
+// have wishlisted the specific product it applies to, or — when it isn't
+// scoped to one product — to every shopper. Best-effort: a notification
+// hiccup never blocks or fails the admin's create request.
+func (s *DiscountService) notifyPromo(productID *uint, title, body string) {
+	if s.notifications == nil {
+		return
+	}
+
+	if productID != nil {
+		userIDs, err := s.wishlists.UserIDsByProduct(*productID)
+		if err != nil || len(userIDs) == 0 {
+			return
+		}
+		s.notifications.BroadcastNotification(userIDs, models.NotifPromo, title, body, productID)
+		return
+	}
+
+	userIDs, err := s.users.AllIDsByRole(models.RoleUser)
+	if err != nil {
+		return
+	}
+	s.notifications.BroadcastNotification(userIDs, models.NotifPromo, title, body, nil)
 }
 
 // --- Discount CRUD (store-scoped: manual, min-purchase, buy-one-get-one) ---
@@ -62,7 +100,22 @@ func (s *DiscountService) Create(in DiscountInput) (*models.Discount, error) {
 	if err := s.discounts.Create(d); err != nil {
 		return nil, err
 	}
+	s.notifyPromo(d.ProductID, "Promo baru", discountPromoCopy(d))
 	return d, nil
+}
+
+func discountPromoCopy(d *models.Discount) string {
+	switch d.Type {
+	case models.DiscountBOGO:
+		return "Promo Beli 1 Gratis 1 baru sudah aktif untuk produk yang Anda wishlist!"
+	case models.DiscountManual:
+		if d.ValueType == models.ValuePercentage {
+			return fmt.Sprintf("Diskon %.0f%% baru sudah aktif untuk produk yang Anda wishlist!", d.Value)
+		}
+		return fmt.Sprintf("Diskon Rp%.0f baru sudah aktif untuk produk yang Anda wishlist!", d.Value)
+	default:
+		return "Ada diskon belanja minimum baru yang sedang aktif di toko!"
+	}
 }
 
 func (s *DiscountService) Update(id uint, in DiscountInput) (*models.Discount, error) {
@@ -262,6 +315,14 @@ func (s *DiscountService) CreateVoucher(in VoucherInput) (*models.Voucher, error
 	if err := s.vouchers.Create(v); err != nil {
 		return nil, err
 	}
+
+	var productID *uint
+	if v.Type == models.VoucherProduct {
+		productID = v.ProductID
+	}
+	body := fmt.Sprintf("Voucher %s sudah tersedia, klaim sebelum %s!", v.Code, v.ExpiresAt.Format("2 Jan 2006"))
+	s.notifyPromo(productID, "Voucher baru", body)
+
 	return v, nil
 }
 

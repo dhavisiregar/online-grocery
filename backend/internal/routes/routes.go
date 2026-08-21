@@ -14,31 +14,38 @@ import (
 // Handlers bundles every route handler so main.go only has to build this
 // struct once and hand it to Register.
 type Handlers struct {
-	Auth      *handlers.AuthHandler
-	User      *handlers.UserHandler
-	Address   *handlers.AddressHandler
-	Store     *handlers.StoreHandler
-	Category  *handlers.CategoryHandler
-	Product   *handlers.ProductHandler
-	Inventory *handlers.InventoryHandler
-	Discount  *handlers.DiscountHandler
-	Cart      *handlers.CartHandler
-	Order     *handlers.OrderHandler
-	Report    *handlers.ReportHandler
-	Location  *handlers.LocationHandler
+	Auth         *handlers.AuthHandler
+	User         *handlers.UserHandler
+	Address      *handlers.AddressHandler
+	Store        *handlers.StoreHandler
+	Category     *handlers.CategoryHandler
+	Product      *handlers.ProductHandler
+	Inventory    *handlers.InventoryHandler
+	Discount     *handlers.DiscountHandler
+	Cart         *handlers.CartHandler
+	Order        *handlers.OrderHandler
+	Report       *handlers.ReportHandler
+	Location     *handlers.LocationHandler
+	Wishlist     *handlers.WishlistHandler
+	Review       *handlers.ReviewHandler
+	Notification *handlers.NotificationHandler
+	Loyalty      *handlers.LoyaltyHandler
 }
 
 func Register(r *gin.Engine, h *Handlers, cfg *config.Config) {
 	r.GET("/health", func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"status": "ok"}) })
 
 	api := r.Group("/api")
-	registerPublicRoutes(api, h)
+	registerPublicRoutes(api, h, cfg)
 	registerUserRoutes(api, h, cfg)
 	registerAdminRoutes(api, h, cfg)
 }
 
-// Public: browsing the catalog and authenticating require no session.
-func registerPublicRoutes(api *gin.RouterGroup, h *Handlers) {
+// Public: browsing the catalog and authenticating require no session. The
+// catalog routes additionally run OptionalAuth so a logged-in shopper's
+// wishlist status is folded into the response without requiring the route
+// itself to sit behind RequireAuth.
+func registerPublicRoutes(api *gin.RouterGroup, h *Handlers, cfg *config.Config) {
 	auth := api.Group("/auth")
 	auth.POST("/register", h.Auth.Register)
 	auth.POST("/resend-verification", h.Auth.ResendVerification)
@@ -50,8 +57,13 @@ func registerPublicRoutes(api *gin.RouterGroup, h *Handlers) {
 	api.GET("/stores", h.Store.List)
 	api.GET("/stores/nearest", h.Store.Nearest)
 	api.GET("/categories", h.Category.List)
-	api.GET("/products", h.Product.List)
-	api.GET("/products/:id", h.Product.Detail)
+
+	optionalAuth := middleware.OptionalAuth(cfg.JWTSecret)
+	api.GET("/products", optionalAuth, h.Product.List)
+	api.GET("/products/:id", optionalAuth, h.Product.Detail)
+
+	api.GET("/products/:id/reviews", h.Review.List)
+	api.GET("/products/:id/rating-summary", h.Review.RatingSummary)
 
 	// Midtrans calls this server-to-server; it authenticates via the
 	// payload's signature (see OrderService.ApplyMidtransNotification),
@@ -100,6 +112,25 @@ func registerUserRoutes(api *gin.RouterGroup, h *Handlers, cfg *config.Config) {
 	vouchers := g.Group("/vouchers")
 	vouchers.GET("/mine", h.Discount.MyVouchers)
 	vouchers.POST("/claim", h.Discount.ClaimVoucher)
+
+	wishlist := g.Group("/wishlist")
+	wishlist.GET("", h.Wishlist.List)
+	wishlist.POST("", h.Wishlist.Add)
+	wishlist.DELETE("/:product_id", h.Wishlist.Remove)
+
+	g.POST("/products/:id/reviews", h.Review.Create)
+
+	notif := g.Group("/notifications")
+	notif.GET("", h.Notification.List)
+	notif.GET("/unread-count", h.Notification.UnreadCount)
+	notif.GET("/stream", h.Notification.Stream)
+	notif.PATCH("/:id/read", h.Notification.MarkAsRead)
+	notif.PATCH("/read-all", h.Notification.MarkAllAsRead)
+
+	loyalty := g.Group("/loyalty")
+	loyalty.GET("/me", h.Loyalty.Me)
+	loyalty.GET("/history", h.Loyalty.History)
+	loyalty.POST("/redeem", h.Loyalty.Redeem)
 }
 
 // Admin: super_admin and store_admin, with per-route role narrowing where

@@ -16,6 +16,7 @@ stores and store admin accounts.
 ```
 backend/            Go REST API
   cmd/api/           entrypoint (main.go)
+  cmd/seed-admin/     CLI to create/promote the first super admin
   internal/
     config/           env var loading
     database/         MySQL connection + AutoMigrate
@@ -68,6 +69,18 @@ npm run dev
 Visit `http://localhost:3000`. The browser will prompt for location access
 on first load, per spec — denying it (or an unsupported browser) falls back
 to the main store.
+
+### First super admin
+
+Public registration always creates a plain `user` — there's no signup flow
+that grants `super_admin`. Provision the first one with the `seed-admin` CLI
+(creates the account if the email doesn't exist yet, or promotes it in place
+if it does):
+
+```bash
+cd backend
+go run ./cmd/seed-admin -email you@example.com -password yourpassword -name "Super Admin"
+```
 
 ## Architecture notes
 
@@ -146,11 +159,10 @@ to the main store.
 
 ## Feature status
 
-This scaffold prioritizes a working vertical slice (auth + location-based
-catalog) plus the full route/data-model surface for the rest, so each
-teammate can build directly on top of it instead of starting from scratch.
-Endpoints not yet implemented return **HTTP 501** with a descriptive
-message instead of failing silently.
+All three features below are now built end-to-end. One edge is
+intentionally left as an **HTTP 501** stub with a descriptive message
+instead of failing silently: `UserHandler.UpdateEmail` (changing your login
+email requires a re-verification flow that isn't wired up).
 
 ### Feature 1 — Homepage, Auth, Address & Shipping, Store Management
 
@@ -168,13 +180,13 @@ message instead of failing silently.
 
 | Area                                                               | Status                                                         |
 | ------------------------------------------------------------------ | -------------------------------------------------------------- |
-| Admin user/store-admin listing                                     | ✅ Built                                                       |
+| Admin user management (list/create/update/delete)                  | ✅ Built end-to-end                                            |
 | Store admin create/update/delete (admin-provisioned, pre-verified) | ✅ Built end-to-end                                            |
 | Product catalog, search, detail (with per-store stock)             | ✅ Built                                                       |
 | Product/category create/update/delete + multi-image upload         | ✅ Built end-to-end (super admin write, store admin read-only) |
 | Inventory (stock journal, adjustments, store-scoped)               | ✅ Built end-to-end                                            |
-| Discounts (manual/min-purchase/BOGO) + vouchers                    | ⏳ Stubbed — see `models.Discount`, `models.Voucher`           |
-| Sales & stock reports                                              | ⏳ Stubbed                                                     |
+| Discounts (manual/min-purchase/BOGO) + vouchers                    | ✅ Built end-to-end                                            |
+| Sales & stock reports                                              | ✅ Built end-to-end                                            |
 
 ### Feature 3 — Cart, Checkout, Order Tracking, Order Management
 
@@ -198,11 +210,18 @@ search, geocoding, real courier rate quotes, weight-aware cost recalculation
 on order creation, and the fallback-to-cheapest-option behavior for an
 unmatched courier/service.
 
-Every stubbed handler lives in `backend/internal/handlers/*.go` with a
-one-line comment on what it needs (e.g. `InventoryHandler.Adjust`,
-`OrderHandler.Create`). The route, request/response wiring, and DB models
-are already in place — implementing a feature means filling in the
-handler body against the existing repository/service layers.
+## UI notes
+
+- **Theming**: manual light/dark mode toggle (`ThemeContext` +
+  `components/layout/ThemeToggle.tsx`), persisted client-side and applied
+  via an inline head script to avoid a flash/hydration mismatch on load.
+- **Alerts**: native `confirm`/`alert` calls have been replaced with
+  SweetAlert2 (`lib/alerts.ts`) across the admin screens for confirmations
+  and error/success messages.
+- **Auth pages**: login and register share a split-screen layout
+  (`components/auth/AuthSplitLayout.tsx`).
+- **Product form**: supports a multi-image gallery with reordering and
+  per-image delete, not just a single upload.
 
 ## Deploying (free tier: Vercel + Render + Aiven)
 

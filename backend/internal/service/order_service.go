@@ -2,6 +2,7 @@ package service
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
 	"gorm.io/gorm"
@@ -24,16 +25,18 @@ var (
 )
 
 type OrderService struct {
-	db        *gorm.DB
-	orders    *repository.OrderRepository
-	carts     *repository.CartRepository
-	addresses *repository.AddressRepository
-	users     *repository.UserRepository
-	products  *repository.ProductRepository
-	storeSvc  *StoreService
-	shipping  *ShippingService
-	midtrans  *MidtransService
-	discounts *DiscountService
+	db            *gorm.DB
+	orders        *repository.OrderRepository
+	carts         *repository.CartRepository
+	addresses     *repository.AddressRepository
+	users         *repository.UserRepository
+	products      *repository.ProductRepository
+	storeSvc      *StoreService
+	shipping      *ShippingService
+	midtrans      *MidtransService
+	discounts     *DiscountService
+	notifications *NotificationService
+	loyalty       *LoyaltyService
 }
 
 func NewOrderService(
@@ -47,10 +50,72 @@ func NewOrderService(
 	shipping *ShippingService,
 	midtrans *MidtransService,
 	discounts *DiscountService,
+	notifications *NotificationService,
+	loyalty *LoyaltyService,
 ) *OrderService {
 	return &OrderService{
 		db: db, orders: orders, carts: carts, addresses: addresses, users: users, products: products,
 		storeSvc: storeSvc, shipping: shipping, midtrans: midtrans, discounts: discounts,
+		notifications: notifications, loyalty: loyalty,
+	}
+}
+
+// notifyStatusChange best-effort notifies the order's owner about the
+// status it's now in. Called from every place OrderService actually
+// transitions an order's status (see cancel, markPaid, Confirm,
+// applyLazyTransitions, SaveAdminTransition) — never from order creation,
+// since a brand-new order's initial waiting_payment status isn't a
+// "transition" worth announcing. A notification failure is swallowed; it
+// must never surface as an order-processing error.
+func (s *OrderService) notifyStatusChange(order *models.Order) {
+	if s.notifications == nil {
+		return
+	}
+	title, body, ok := orderStatusNotificationCopy(order, s.orderItemSummary(order))
+	if !ok {
+		return
+	}
+	_, _ = s.notifications.CreateNotification(order.UserID, models.NotifOrderStatus, title, body, &order.ID)
+}
+
+// orderItemSummary names what the order is about — the product(s) — rather
+// than its order number, which means nothing to a shopper reading a
+// notification. Falls back to a DB lookup when order.Items wasn't preloaded
+// by however the caller loaded this order (e.g. the Midtrans webhook path,
+// which loads by order number rather than FindByID).
+func (s *OrderService) orderItemSummary(order *models.Order) string {
+	items := order.Items
+	if len(items) == 0 {
+		if loaded, err := s.orders.ItemsByOrderID(order.ID); err == nil {
+			items = loaded
+		}
+	}
+	switch len(items) {
+	case 0:
+		return "pesanan Anda"
+	case 1:
+		return items[0].ProductName
+	default:
+		return fmt.Sprintf("%s dan %d produk lainnya", items[0].ProductName, len(items)-1)
+	}
+}
+
+func orderStatusNotificationCopy(order *models.Order, itemSummary string) (title, body string, ok bool) {
+	switch order.Status {
+	case models.StatusProcessing:
+		return "Pembayaran dikonfirmasi", fmt.Sprintf("Pesanan %s sedang diproses.", itemSummary), true
+	case models.StatusWaitingPayment:
+		// Only reached as a transition (not creation) when an admin rejects
+		// a manual payment review — commitOrder never calls this hook.
+		return "Pembayaran ditolak", fmt.Sprintf("Pembayaran untuk %s ditolak, silakan coba lagi.", itemSummary), true
+	case models.StatusShipped:
+		return "Pesanan dikirim", fmt.Sprintf("%s sedang dalam pengiriman.", itemSummary), true
+	case models.StatusConfirmed:
+		return "Pesanan selesai", fmt.Sprintf("Pesanan %s telah selesai. Terima kasih telah berbelanja!", itemSummary), true
+	case models.StatusCancelled:
+		return "Pesanan dibatalkan", fmt.Sprintf("Pesanan %s telah dibatalkan.", itemSummary), true
+	default:
+		return "", "", false
 	}
 }
 
@@ -368,6 +433,7 @@ func (s *OrderService) applyLazyTransitions(order *models.Order) error {
 		}); err != nil {
 			return err
 		}
+		s.notifyStatusChange(order)
 		s.afterConfirmed(order)
 	}
 	return nil
@@ -394,7 +460,7 @@ func (s *OrderService) Cancel(userID, orderID uint) error {
 }
 
 func (s *OrderService) cancel(order *models.Order, by models.StatusChangedBy, notes string) error {
-	return s.db.Transaction(func(tx *gorm.DB) error {
+	err := s.db.Transaction(func(tx *gorm.DB) error {
 		items, err := s.orderItemsTx(tx, order.ID)
 		if err != nil {
 			return err
@@ -416,6 +482,10 @@ func (s *OrderService) cancel(order *models.Order, by models.StatusChangedBy, no
 			OrderID: order.ID, Status: order.Status, ChangedBy: by, Notes: notes,
 		}).Error
 	})
+	if err == nil {
+		s.notifyStatusChange(order)
+	}
+	return err
 }
 
 // AdminCancel restores stock the same way a customer cancellation does,
@@ -431,9 +501,13 @@ func (s *OrderService) SaveAdminTransition(order *models.Order, notes string) er
 	if err := s.orders.Save(order); err != nil {
 		return err
 	}
-	return s.orders.AppendStatusHistory(&models.OrderStatusHistory{
+	if err := s.orders.AppendStatusHistory(&models.OrderStatusHistory{
 		OrderID: order.ID, Status: order.Status, ChangedBy: models.ChangedByAdmin, Notes: notes,
-	})
+	}); err != nil {
+		return err
+	}
+	s.notifyStatusChange(order)
+	return nil
 }
 
 func (s *OrderService) orderItemsTx(tx *gorm.DB, orderID uint) ([]models.OrderItem, error) {
@@ -462,6 +536,7 @@ func (s *OrderService) Confirm(userID, orderID uint) error {
 	}); err != nil {
 		return err
 	}
+	s.notifyStatusChange(order)
 	s.afterConfirmed(order)
 	return nil
 }
@@ -473,6 +548,9 @@ func (s *OrderService) afterConfirmed(order *models.Order) {
 	count, err := s.orders.CountConfirmedByUser(order.UserID)
 	if err == nil {
 		_ = s.discounts.MaybeGrantLoyaltyShippingVoucher(order.UserID, count)
+	}
+	if s.loyalty != nil {
+		s.loyalty.AwardForOrder(order)
 	}
 }
 
@@ -586,6 +664,7 @@ func (s *OrderService) markPaid(order *models.Order) error {
 	}); err != nil {
 		return err
 	}
+	s.notifyStatusChange(order)
 	_ = s.discounts.MaybeGrantMinPurchaseVoucher(order.UserID, order.Subtotal)
 	return nil
 }

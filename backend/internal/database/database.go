@@ -56,6 +56,7 @@ func AutoMigrate(db *gorm.DB) error {
 		&models.ProductImage{},
 		&models.StoreProduct{},
 		&models.StockJournal{},
+		&models.Wishlist{},
 		&models.Discount{},
 		&models.Voucher{},
 		&models.UserVoucher{},
@@ -64,5 +65,9 @@ func AutoMigrate(db *gorm.DB) error {
 		&models.Order{},
 		&models.OrderItem{},
 		&models.OrderStatusHistory{},
+		&models.Review{},
+		&models.Notification{},
+		&models.LoyaltyAccount{},
+		&models.PointsJournal{},
 	)
 }

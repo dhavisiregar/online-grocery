@@ -55,6 +55,12 @@ export interface ProductWithStock {
   stock: number;
   store_id: number;
   effective_price?: number;
+  is_wishlisted: boolean;
+  average_rating: number;
+  review_count: number;
+  // Only ever computed on the product detail response (not the listing) —
+  // undefined there rather than a misleading false.
+  can_review?: boolean;
 }
 
 export interface Pagination {
@@ -132,12 +138,77 @@ export interface Order {
   items?: OrderItem[];
 }
 
+export type NotificationType = "order_status" | "promo" | "system";
+
+export interface Notification {
+  id: number;
+  user_id: number;
+  type: NotificationType;
+  title: string;
+  body: string;
+  related_id?: number;
+  is_read: boolean;
+  created_at: string;
+}
+
+export type LoyaltyTier = "bronze" | "silver" | "gold";
+
+export interface LoyaltySummary {
+  points: number;
+  tier: LoyaltyTier;
+  total_spend: number;
+  next_tier_threshold?: number;
+  progress_percent: number;
+}
+
+export type PointsReason = "order_completed" | "redeemed" | "expired" | "adjustment";
+
+export interface PointsJournalEntry {
+  id: number;
+  user_id: number;
+  points: number;
+  reason: PointsReason;
+  related_order_id?: number;
+  created_at: string;
+}
+
 export interface CartItem {
   id: number;
   product_id: number;
   store_id: number;
   quantity: number;
   product?: Product;
+}
+
+export interface WishlistItem {
+  id: number;
+  user_id: number;
+  product_id: number;
+  store_id: number;
+  stock: number;
+  created_at: string;
+  product?: Product;
+}
+
+export interface Review {
+  id: number;
+  user_id: number;
+  product_id: number;
+  order_id: number;
+  rating: number;
+  comment: string;
+  image_urls?: string[];
+  created_at: string;
+  user_name: string;
+  user_profile_photo_url?: string;
+}
+
+export interface RatingSummary {
+  average: number;
+  count: number;
+  // rating (1-5, as a string key — Go's map[int]int64 marshals to a JSON
+  // object) -> how many reviews gave that rating.
+  breakdown: Record<string, number>;
 }
 
 export type DiscountType = "manual" | "min_purchase" | "buy_one_get_one";

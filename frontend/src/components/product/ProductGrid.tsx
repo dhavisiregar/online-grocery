@@ -40,7 +40,8 @@ export function ProductGrid({ limit = 12, showFilters = false }: { limit?: numbe
       setLoading(true);
       setError(null);
       api<ProductsResponse>("/api/products", {
-        auth: false,
+        // No RequireAuth on this route — sending the token when present just
+        // lets the backend fold in is_wishlisted for a logged-in shopper.
         query: {
           lat: geo.lat ?? undefined,
           lng: geo.lng ?? undefined,

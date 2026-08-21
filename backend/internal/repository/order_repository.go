@@ -62,6 +62,15 @@ func (r *OrderRepository) FindByOrderNumber(orderNumber string) (*models.Order, 
 	return &order, nil
 }
 
+// ItemsByOrderID is a fallback for callers that have an *models.Order not
+// loaded via FindByID (which preloads Items) — e.g. the Midtrans webhook
+// path, which loads by order number instead.
+func (r *OrderRepository) ItemsByOrderID(orderID uint) ([]models.OrderItem, error) {
+	items := []models.OrderItem{}
+	err := r.db.Where("order_id = ?", orderID).Find(&items).Error
+	return items, err
+}
+
 func (r *OrderRepository) AppendStatusHistory(h *models.OrderStatusHistory) error {
 	return r.db.Create(h).Error
 }
